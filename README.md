@@ -31,14 +31,14 @@ A production-ready URL shortener built on Cloudflare's edge computing platform w
 
 ## Features
 
-✅ **Fast URL Redirection**: Cached at the edge for <100ms response times
-✅ **Global Distribution**: Uses Cloudflare's worldwide data centers
-✅ **Analytics**: Real-time tracking of clicks, referrers, and geographic data
-✅ **Rate Limiting**: Prevents abuse with configurable per-IP limits
-✅ **Custom Aliases**: Support for vanity URLs
-✅ **URL Expiration**: Optional TTL for temporary short codes
-✅ **High Performance**: Sub-millisecond lookups with KV caching
-✅ **Security**: HTTPS only, API key support, CORS enabled
+✅ **Fast URL Redirection**: Cached at the edge for <100ms response times 
+✅ **Global Distribution**: Uses Cloudflare's worldwide data centers 
+✅ **Analytics**: Real-time tracking of clicks, referrers, and geographic data 
+✅ **Rate Limiting**: Prevents abuse with configurable per-IP limits 
+✅ **Custom Aliases**: Support for vanity URLs 
+✅ **URL Expiration**: Optional TTL for temporary short codes 
+✅ **High Performance**: Sub-millisecond lookups with KV caching 
+✅ **Security**: HTTPS only, API key support, CORS enabled 
 
 ## Setup Instructions
 
@@ -71,11 +71,22 @@ Edit `wrangler.toml`:
 
 3. **Create KV Namespaces**
 
+Use the installed Wrangler CLI:
+
 ```bash
 wrangler kv:namespace create "URL_STORE"
 wrangler kv:namespace create "URL_STORE" --preview
 wrangler kv:namespace create "RATE_LIMIT_KV"
 wrangler kv:namespace create "RATE_LIMIT_KV" --preview
+```
+
+Or via npx (no global Wrangler install needed):
+
+```bash
+npx wrangler kv:namespace create URL_STORE
+npx wrangler kv:namespace create URL_STORE --preview
+npx wrangler kv:namespace create RATE_LIMIT_KV
+npx wrangler kv:namespace create RATE_LIMIT_KV --preview
 ```
 
 4. **Set Environment Variables** (optional)
