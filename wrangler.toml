@@ -1,0 +1,39 @@
+name = "url-shortener"
+type = "javascript"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+# Workers KV namespace bindings
+[[kv_namespaces]]
+binding = "URL_STORE"
+id = "your-kv-namespace-id"
+preview_id = "your-kv-preview-id"
+
+# Durable Objects binding
+[[durable_objects.bindings]]
+name = "ANALYTICS"
+class_name = "AnalyticsObject"
+script_name = "url-shortener"
+
+# Routes for custom domain
+routes = [
+  { pattern = "*.short.example.com/*", zone_id = "your-zone-id" }
+]
+
+# Build configuration
+[build]
+command = "npm run build"
+cwd = "./"
+
+# Dev configuration
+[env.development]
+name = "url-shortener-dev"
+routes = [
+  { pattern = "localhost/*" }
+]
+
+[env.production]
+name = "url-shortener"
+routes = [
+  { pattern = "short.example.com/*", zone_id = "your-zone-id" }
+]

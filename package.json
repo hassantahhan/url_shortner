@@ -1,0 +1,26 @@
+{
+  "name": "url-shortener",
+  "version": "1.0.0",
+  "description": "Global URL shortener using Cloudflare Workers and KV",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler publish",
+    "build": "tsc",
+    "type-check": "tsc --noEmit",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "lint": "eslint src --ext .ts"
+  },
+  "dependencies": {
+    "itty-router": "^4.0.13"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240620.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.0.0",
+    "wrangler": "^3.20.0"
+  }
+}

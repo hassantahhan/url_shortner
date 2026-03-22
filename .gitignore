@@ -1,0 +1,51 @@
+# Dependencies
+node_modules/
+npm-debug.log
+yarn-error.log
+package-lock.json
+yarn.lock
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# Environment variables (don't commit secrets!)
+.env
+.env.local
+.env.*.local
+.env.production.local
+.env.development.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Wrangler
+.wrangler/
+wrangler.lock
+
+# Testing
+coverage/
+.nyc_output/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# OS files
+Thumbs.db
+.directory
+
+# Logs
+logs/
+*.log*
+
+# Cache
+.cache/
+.eslintcache
