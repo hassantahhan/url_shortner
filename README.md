@@ -55,11 +55,21 @@ npm install -g wrangler
 
 ### Installation
 
-1. **Clone and install dependencies**
+1. **Install dependencies**
 
 ```bash
-cd url_shortner
 npm install
+```
+
+2. **Create KV Namespaces**
+
+Use the installed Wrangler via npx:
+
+```bash
+npx wrangler kv:namespace create URL_STORE
+npx wrangler kv:namespace create URL_STORE --preview
+npx wrangler kv:namespace create RATE_LIMIT_KV
+npx wrangler kv:namespace create RATE_LIMIT_KV --preview
 ```
 
 2. **Configure Wrangler**
@@ -68,26 +78,6 @@ Edit `wrangler.toml`:
 - Replace `your-kv-namespace-id` with your actual KV namespace ID
 - Replace `your-zone-id` with your Cloudflare zone ID
 - Update domain in routes (replace `short.example.com`)
-
-3. **Create KV Namespaces**
-
-Use the installed Wrangler CLI:
-
-```bash
-wrangler kv:namespace create "URL_STORE"
-wrangler kv:namespace create "URL_STORE" --preview
-wrangler kv:namespace create "RATE_LIMIT_KV"
-wrangler kv:namespace create "RATE_LIMIT_KV" --preview
-```
-
-Or via npx (no global Wrangler install needed):
-
-```bash
-npx wrangler kv:namespace create URL_STORE
-npx wrangler kv:namespace create URL_STORE --preview
-npx wrangler kv:namespace create RATE_LIMIT_KV
-npx wrangler kv:namespace create RATE_LIMIT_KV --preview
-```
 
 4. **Set Environment Variables** (optional)
 
