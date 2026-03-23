@@ -38,7 +38,7 @@ A production-ready URL shortener built on Cloudflare's edge computing platform w
 ✅ **Custom Aliases**: Support for vanity URLs  
 ✅ **URL Expiration**: Optional TTL for temporary short codes  
 ✅ **High Performance**: Sub-millisecond lookups with KV caching  
-✅ **Security**: HTTPS only, API key support, CORS enabled  
+✅ **Security**: HTTPS only, CORS enabled  
 
 ## Setup Instructions
 
@@ -114,7 +114,7 @@ wrangler publish --env production
 **Parameters:**
 - `url` (required): The URL to shorten
 - `customAlias` (optional): Custom short code (3-20 chars, alphanumeric + hyphens)
-- `expiresIn` (optional): Milliseconds until expiration
+- `expiresIn` (optional): Milliseconds until expiration (defaults to 30 days)
 
 **Response (201):**
 ```json
@@ -222,9 +222,9 @@ ratelimit:{ip}:hour      → Per-hour counter (3600s TTL)
 - 30 requests/minute per IP
 - Prevents rapid-fire URL creation attacks
 
-**Redirect endpoint (read-heavy):**
-- 1000 requests/hour per IP
-- Prevents enumeration attacks
+**Current enforcement:**
+- Applied on `POST /shorten`
+- Returns 429 with standard rate-limit headers when exceeded
 
 **Headers returned:**
 ```
@@ -236,7 +236,8 @@ RateLimit-Reset: 1700000060
 ### CORS & Security Headers
 
 - Cross-Origin Requests enabled with proper CORS headers
-- All responses include `Content-Type: application/json`
+- JSON endpoints return `Content-Type: application/json`
+- Redirect endpoint (`GET /:code`) returns `301` with `Location` header
 - Error messages are informative but not sensitive
 
 ## Durable Objects Deep Dive
@@ -297,10 +298,9 @@ wrangler publish --env production
 
 ## Environment Variables
 
-Create `.env.production.local` for sensitive data:
+Create `.env.production.local` for optional runtime config:
 
 ```env
-API_KEY=sk_prod_xxxxxxxxxxxx
 RATE_LIMIT_ENABLED=true
 CUSTOM_DOMAIN=short.mycompany.com
 ```
