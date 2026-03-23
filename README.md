@@ -29,7 +29,7 @@ Global URL shortener leveraging Cloudflare Workers, KV, and Durable Objects for 
 
 ## Features
 
-✅ **Fast URL Redirection**: Cached at the edge with <100 ms latency
+✅ **Fast URL Redirection**: Cached at the edge with <100 ms latency  
 ✅ **Global Distribution**: Uses Cloudflare's worldwide data centers  
 ✅ **Analytics**: Real-time tracking of clicks, referrers, and geographic data  
 ✅ **Rate Limiting**: Prevents abuse with configurable per-IP limits  
