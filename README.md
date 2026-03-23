@@ -5,9 +5,9 @@ Global URL shortener leveraging Cloudflare Workers, KV, and Durable Objects for 
 ## Architecture Overview
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Client Request                           │
-└──────────────────────┬──────────────────────────────────────┘
+┌────────────────────────────────────────────────┐
+│                Client Request                  │
+└──────────────────────┬─────────────────────────┘
                        │
           ┌────────────▼──────────────┐
           │  Cloudflare Edge Network  │
@@ -17,7 +17,6 @@ Global URL shortener leveraging Cloudflare Workers, KV, and Durable Objects for 
           ┌────────────▼──────────────┐
           │  Cloudflare Worker        │
           │  ├─ Rate Limiting         │
-          │  ├─ Routing               │
           │  └─ Request Processing    │
           └─┬──────────────────┬──────┘
             │                  │
@@ -25,27 +24,25 @@ Global URL shortener leveraging Cloudflare Workers, KV, and Durable Objects for 
     │ Workers KV      │  │ Durable Objects    │
     │ (URL Mappings)  │  │ (Analytics)        │
     │ - Fast Reads    │  │ - Real-time Stats  │
-    │ - Global CDN    │  │ - Persistent Data  │
     └─────────────────┘  └────────────────────┘
 ```
 
 ## Features
 
-✅ **Fast URL Redirection**: Cached at the edge for <100ms  
+✅ **Fast URL Redirection**: Cached at the edge with <100 ms latency
 ✅ **Global Distribution**: Uses Cloudflare's worldwide data centers  
 ✅ **Analytics**: Real-time tracking of clicks, referrers, and geographic data  
 ✅ **Rate Limiting**: Prevents abuse with configurable per-IP limits  
-✅ **Custom Aliases**: Support for vanity URLs  
+✅ **Custom Aliases**: Support for vanity URLs (customized and  memorable)  
 ✅ **URL Expiration**: Optional TTL for temporary short codes  
-✅ **High Performance**: Sub-millisecond lookups with KV caching  
 ✅ **Security**: HTTPS only, CORS enabled  
 
 ## Setup Instructions
 
 ### Prerequisites
 
-- Node.js 18+
-- npm or yarn
+- npm
+- Node.js
 - Cloudflare account with Workers enabled
 - Wrangler CLI installed globally
 
@@ -209,8 +206,6 @@ GET /abc123
 }
 ```
 
-**Cache:** 1 minute
-
 ## Performance Optimization
 
 ### Caching Strategy
@@ -228,7 +223,7 @@ Since short URLs are **static** (the target never changes without deletion), we 
 
 1. **First access**: Worker queries KV, gets URL, sets cache headers
 2. **Subsequent accesses**: Cloudflare serves cached response from edge location
-3. **Result**: <10ms response times for 99% of requests globally
+3. **Result**: <100ms response times for 99% of requests globally
 
 ## Security Implementation
 
@@ -271,19 +266,6 @@ RateLimit-Reset: 1700000060
 - Persistent storage with durability guarantees
 - Real-time in-memory state for hot URLs
 
-### Analytics Data Structure
-
-```typescript
-interface AnalyticsData {
-  shortCode: string;           // Unique identifier
-  redirectCount: number;       // Total clicks
-  lastAccessedAt: number;      // Timestamp of last access
-  referrers: Record<string, number>;    // Domain referrer counts
-  countries: Record<string, number>;    // Geographic distribution
-  userAgents: Record<string, number>;   // Browser/client breakdown
-}
-```
-
 ### Recording Analytics
 
 When a redirect occurs:
@@ -291,15 +273,6 @@ When a redirect occurs:
 2. Durable Object increments counters atomically
 3. Data persists in Durable Object's storage
 4. Minimal impact on redirect latency (<1ms)
-
-## Environment Variables
-
-Create `.env.production.local` for optional runtime config:
-
-```env
-RATE_LIMIT_ENABLED=true
-CUSTOM_DOMAIN=short.mycompany.com
-```
 
 ## Monitoring & Debugging
 
@@ -375,28 +348,10 @@ wrangler kv:namespace list
 - Adjust limits in `src/rate-limiter.ts`
 - Test with `X-Forwarded-For` header simulation
 
-### Analytics not appearing
-- Ensure Durable Objects binding is configured in `wrangler.toml`
-- Check Durable Objects migration is applied
-- Verify `ANALYTICS` namespace is created
-
 ### Cache not working
 - Check `Cache-Control` headers returned from cloudflare Dashboard
 - Verify `s-maxage` directive for edge cache
 - Clear cache via cloudflare Dashboard if needed
-
-## Testing
-
-```bash
-# Type checking
-npm run type-check
-
-# Linting
-npm run lint
-
-# Format code
-npm run format
-```
 
 ## Decommission
 
@@ -421,14 +376,14 @@ npx wrangler kv namespace list
 npx wrangler kv namespace delete --namespace-id [...namespace-id...]
 ```
 
-## Cost Estimate (AWS pricing equivalent)
+## Cost Estimate
 
-| Component | Cloudflare | AWS |
-|-----------|-----------|-----|
-| 1M API calls/day | $0.50 | $2.50+ |
-| 100M page views/day | Included* | $5.00+ |
-| Edge caching | Global | $0.50+ |
-| Analytics DB | Included | $1.00+ |
+| Component | Cloudflare |
+|-----------|-----------|
+| 1M API calls/day | $0.50 |
+| 100M page views/day | Included* |
+| Edge caching | Global |
+| Analytics DB | Included |
 
 *Cloudflare Workers Scale pricing tier
 
