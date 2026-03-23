@@ -67,9 +67,7 @@ Use the installed Wrangler via npx:
 
 ```bash
 npx wrangler kv:namespace create URL_STORE
-npx wrangler kv:namespace create URL_STORE --preview
 npx wrangler kv:namespace create RATE_LIMIT_KV
-npx wrangler kv:namespace create RATE_LIMIT_KV --preview
 ```
 
 3. **Configure Wrangler**

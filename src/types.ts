@@ -46,8 +46,7 @@ export interface ErrorResponse {
 // Environment types
 export interface Env {
   URL_STORE: KVNamespace;
-  ANALYTICS: DurableObjectNamespace;
   RATE_LIMIT_KV: KVNamespace;
-  API_KEY?: string;
   RATE_LIMIT_ENABLED?: string;
+  ANALYTICS: DurableObjectNamespace;
 }
