@@ -33,6 +33,11 @@ Business logic is designed around reliability and cost-efficient scale: create r
     └─────────────────┘  └────────────────────┘
 ```
 
+## Quick Links
+
+- Architecture: [ARCHITECTURE.md](ARCHITECTURE.md)
+- API reference: [API_DOCS.md](API_DOCS.md)
+
 ## Features
 
 ✅ **Fast URL Redirection**: Cached at the edge with <100 ms latency  
@@ -142,7 +147,7 @@ $env:BASE_URL = "https://your-worker-domain.example.com"
 npm test
 ```
 
-## API Documentation
+## API Examples
 
 ### Create Shortened URL
 
@@ -173,8 +178,6 @@ npm test
 }
 ```
 
-**Rate Limit:** 30 requests/minute per IP
-
 ### Redirect to Original URL
 
 **Endpoint:** `GET /:code`
@@ -187,52 +190,14 @@ GET /abc123
 → 301 Location: https://example.com/very/long/path
 ```
 
-### Get URL Information
+## Caching Strategy
 
-**Endpoint:** `GET /:code/info`
+Since short URLs are **static** (the target never changes without deletion), we can cache aggressively:
 
-**Response:**
-```json
-{
-  "id": "abc123",
-  "originalUrl": "https://example.com/very/long/path",
-  "createdAt": 1700000000000,
-  "customAlias": "mylink"
-}
-```
+1. **First access**: Worker queries KV, gets URL, sets cache headers
+2. **Subsequent accesses**: Cloudflare serves cached response from edge location
+3. **Result**: <100ms response times for 99% of requests globally
 
-### Get Analytics
-
-**Endpoint:** `GET /:code/analytics`
-
-**Response:**
-```json
-{
-  "shortCode": "abc123",
-  "redirectCount": 1250,
-  "lastAccessedAt": 1700050000000,
-  "referrers": {
-    "twitter.com": 450,
-    "facebook.com": 380,
-    "direct": 420
-  },
-  "countries": {
-    "US": 600,
-    "GB": 300,
-    "FR": 200,
-    "OTHER": 150
-  },
-  "userAgents": {
-    "Chrome": 700,
-    "Safari": 350,
-    "Firefox": 200
-  }
-}
-```
-
-## Performance Optimization
-
-### Caching Strategy
 
 | Component          | Cache TTL        | Location      | Strategy           |
 |--------------------|------------------|---------------|--------------------|
@@ -240,14 +205,6 @@ GET /abc123
 | URL Info           | 1 hour (3600s)   | Edge          | Standard caching   |
 | Analytics          | 1 minute (60s)   | Edge          | Short-lived cache  |
 | Health Check       | No cache         | Origin        | Real-time check    |
-
-### Why Edge Caching Works
-
-Since short URLs are **static** (the target never changes without deletion), we can cache aggressively:
-
-1. **First access**: Worker queries KV, gets URL, sets cache headers
-2. **Subsequent accesses**: Cloudflare serves cached response from edge location
-3. **Result**: <100ms response times for 99% of requests globally
 
 ## Security Controls
 
@@ -312,8 +269,6 @@ wrangler tail
 wrangler tail --format json
 # See detailed error traces
 ```
-
-## Troubleshooting
 
 ### "Namespace not found" error
 ```bash
