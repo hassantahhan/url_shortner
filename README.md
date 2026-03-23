@@ -385,9 +385,9 @@ wrangler kv:namespace list
 - Verify `ANALYTICS` namespace is created
 
 ### Cache not working
-- Check `Cache-Control` headers returned from CF Dashboard
+- Check `Cache-Control` headers returned from cloudflare Dashboard
 - Verify `s-maxage` directive for edge cache
-- Clear cache via CF Dashboard if needed
+- Clear cache via cloudflare Dashboard if needed
 
 ## Testing
 
@@ -404,7 +404,7 @@ npm run format
 
 ## Production Best Practices
 
-1. **Monitor analytics** via CF Dashboard
+1. **Monitor analytics** via Ccloudflare Dashboard
 2. **Start with higher rate limits**, adjust based on metrics
 3. **Enable geo-blocking** for specific regions if needed
 4. **Regularly audit** created URLs for spam/abuse
