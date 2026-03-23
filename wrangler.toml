@@ -9,12 +9,10 @@ workers_dev = true
 [[kv_namespaces]]
 binding = "URL_STORE"
 id = "your-kv-namespace-id"
-preview_id = "your-kv-preview-id"
 
 [[kv_namespaces]]
 binding = "RATE_LIMIT_KV"
 id = "your-kv-namespace-id"
-preview_id = "your-kv-preview-id"
 
 # Durable Objects binding
 [[durable_objects.bindings]]

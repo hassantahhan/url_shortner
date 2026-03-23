@@ -93,6 +93,32 @@ npm run deploy
 wrangler deploy --env production
 ```
 
+## Run Tests
+
+The project includes an integration-style test script in `test-examples.js`.
+
+1. Start the local worker in one terminal:
+
+```bash
+npm run dev
+```
+
+2. In a second terminal, run:
+
+```bash
+npm test
+```
+
+By default, tests target `http://localhost:8787`.
+To run tests against another environment, set `BASE_URL` before running `npm test`.
+
+Example (PowerShell):
+
+```powershell
+$env:BASE_URL = "https://your-worker-domain.example.com"
+npm test
+```
+
 ## API Documentation
 
 ### Create Shortened URL
