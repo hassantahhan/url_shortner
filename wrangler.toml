@@ -1,7 +1,9 @@
 name = "url-shortener"
-type = "javascript"
 main = "src/index.ts"
 compatibility_date = "2024-01-01"
+
+# Use the 'workers_dev' flag for fast testing and development.
+workers_dev = true
 
 # Workers KV namespace bindings
 [[kv_namespaces]]
@@ -9,16 +11,20 @@ binding = "URL_STORE"
 id = "your-kv-namespace-id"
 preview_id = "your-kv-preview-id"
 
+[[kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "your-kv-namespace-id"
+preview_id = "your-kv-preview-id"
+
 # Durable Objects binding
 [[durable_objects.bindings]]
 name = "ANALYTICS"
 class_name = "AnalyticsObject"
-script_name = "url-shortener"
 
-# Routes for custom domain
-routes = [
-  { pattern = "*.short.example.com/*", zone_id = "your-zone-id" }
-]
+# Durable Objects migrations
+[[migrations]]
+tag = "v1"
+new_classes = ["AnalyticsObject"]
 
 # Build configuration
 [build]
@@ -32,8 +38,9 @@ routes = [
   { pattern = "localhost/*" }
 ]
 
+# Prod configuration
 [env.production]
 name = "url-shortener"
 routes = [
-  { pattern = "short.example.com/*", zone_id = "your-zone-id" }
+  { pattern = "short.example.com", custom_domain = true }
 ]

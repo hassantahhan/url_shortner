@@ -1,4 +1,4 @@
-import { Router } from 'itty-router';
+import { Router, IRequest } from 'itty-router';
 import { Env, CreateURLRequest, ErrorResponse } from './types';
 import { KVStorage } from './kv-storage';
 import { RateLimiter } from './rate-limiter';
@@ -123,7 +123,7 @@ router.post('/shorten', async (request: Request, env: Env) => {
 /**
  * GET /:code - Redirect to original URL
  */
-router.get('/:code', async (request: Request, env: Env) => {
+router.get('/:code', async (request: IRequest, env: Env) => {
   const { code } = request.params as { code: string };
   const clientIP = getClientIP(request);
 
@@ -179,7 +179,7 @@ router.get('/:code', async (request: Request, env: Env) => {
 /**
  * GET /:code/info - Get information about a short URL
  */
-router.get('/:code/info', async (request: Request, env: Env) => {
+router.get('/:code/info', async (request: IRequest, env: Env) => {
   const { code } = request.params as { code: string };
 
   try {
@@ -206,7 +206,7 @@ router.get('/:code/info', async (request: Request, env: Env) => {
 /**
  * GET /:code/analytics - Get analytics for a short URL
  */
-router.get('/:code/analytics', async (request: Request, env: Env) => {
+router.get('/:code/analytics', async (request: IRequest, env: Env) => {
   const { code } = request.params as { code: string };
 
   try {

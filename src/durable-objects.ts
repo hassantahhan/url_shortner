@@ -3,7 +3,6 @@ import { AnalyticsData } from './types';
 export class AnalyticsObject {
   private state: DurableObjectState;
   private env: any;
-  private data: AnalyticsData;
 
   constructor(state: DurableObjectState, env: any) {
     this.state = state;
