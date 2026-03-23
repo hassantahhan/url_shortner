@@ -90,7 +90,6 @@ curl -X POST /shorten -d '{
 **Operations**:
 - **Get** (read): <1ms latency, cached at edge
 - **Put** (write): ~5-10ms, replicated globally
-- **Delete**: Removes key and any aliases
 
 ### 3. Durable Objects (Persistent Compute)
 
@@ -191,10 +190,10 @@ RateLimit-Reset: 1700000060            // Unix timestamp when resets
 
 ### Why 7-Day Edge Cache?
 
-1. **Short URLs are static**: URL target never changes (only deletes)
-2. **Cost reduction**: 99% cache hit rate = 99% less origin requests
-3. **Global performance**: 7-day freshness acceptable for redirects
-4. **Invalidation**: Delete operation removes from KV + purges edge cache
+1. **Short URLs are static**: URL target never changes  
+2. **Cost reduction**: 99% cache hit rate = 99% less origin requests  
+3. **Global performance**: 7-day freshness acceptable for redirects  
+4. **Invalidation**: Delete operation removes from KV + purges edge cache  
 
 ### Cache Key Structure
 
@@ -277,7 +276,6 @@ Production Durable Objects (selected locations)
    - GET /:code/info → URL metadata
    
 2. **API Key Protected** (optional)
-   - DELETE /:code → Delete URLs
    - Analytics endpoints (future)
 
 **Implementation**:

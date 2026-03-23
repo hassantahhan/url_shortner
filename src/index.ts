@@ -39,8 +39,8 @@ function createErrorResponse(
  */
 function addCORSHeaders(response: Response): Response {
   response.headers.set('Access-Control-Allow-Origin', '*');
-  response.headers.set('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
-  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
   return response;
 }
 
@@ -241,36 +241,6 @@ router.get('/:code/analytics', async (request: Request, env: Env) => {
 });
 
 /**
- * DELETE /:code - Delete a short URL
- */
-router.delete('/:code', async (request: Request, env: Env) => {
-  const { code } = request.params as { code: string };
-  const authHeader = request.headers.get('Authorization');
-
-  // Optional: Verify API key
-  if (env.API_KEY && authHeader !== `Bearer ${env.API_KEY}`) {
-    return createErrorResponse('Unauthorized', 401);
-  }
-
-  try {
-    const storage = new KVStorage(env.URL_STORE);
-    const deleted = await storage.deleteURL(code);
-
-    if (!deleted) {
-      return createErrorResponse('Short URL not found', 404);
-    }
-
-    return new Response(JSON.stringify({ success: true, message: 'URL deleted successfully' }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
-    });
-  } catch (error) {
-    console.error('Error deleting URL:', error);
-    return createErrorResponse('Internal server error', 500);
-  }
-});
-
-/**
  * OPTIONS - Handle CORS preflight
  */
 router.options('*', () => {
@@ -278,8 +248,8 @@ router.options('*', () => {
     status: 204,
     headers: {
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type'
     }
   });
 });

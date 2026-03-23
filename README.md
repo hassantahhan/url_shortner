@@ -72,23 +72,14 @@ npx wrangler kv:namespace create RATE_LIMIT_KV
 npx wrangler kv:namespace create RATE_LIMIT_KV --preview
 ```
 
-2. **Configure Wrangler**
+3. **Configure Wrangler**
 
 Edit `wrangler.toml`:
-- Replace `your-kv-namespace-id` with your actual KV namespace ID
+- Replace `your-kv-namespace-id` strings with your actual KV namespace IDs
 - Replace `your-zone-id` with your Cloudflare zone ID
 - Update domain in routes (replace `short.example.com`)
 
-4. **Set Environment Variables** (optional)
-
-Create `.env.production` and `.env.development`:
-
-```env
-API_KEY=your-secret-api-key
-RATE_LIMIT_ENABLED=true
-```
-
-5. **Run Locally**
+4. **Run Locally**
 
 ```bash
 npm run dev
@@ -96,7 +87,7 @@ npm run dev
 
 The worker will run at `http://localhost:8787`
 
-6. **Deploy to Cloudflare**
+5. **Deploy to Cloudflare**
 
 ```bash
 npm run deploy
@@ -195,23 +186,6 @@ GET /abc123
 
 **Cache:** 1 minute
 
-### Delete Shortened URL
-
-**Endpoint:** `DELETE /:code`
-
-**Headers:**
-```
-Authorization: Bearer your-secret-api-key
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "URL deleted successfully"
-}
-```
-
 ## Performance Optimization
 
 ### Caching Strategy
@@ -257,21 +231,6 @@ ratelimit:{ip}:hour      → Per-hour counter (3600s TTL)
 RateLimit-Limit: 30
 RateLimit-Remaining: 27
 RateLimit-Reset: 1700000060
-```
-
-### API Key Protection
-
-Optional API key for sensitive operations (DELETE):
-
-```typescript
-// Add to wrangler.toml env vars
-API_KEY = "your-secret-key"
-```
-
-Usage:
-```bash
-curl -H "Authorization: Bearer your-secret-key" \
-  -X DELETE https://short.example.com/abc123
 ```
 
 ### CORS & Security Headers
@@ -445,12 +404,11 @@ npm run format
 
 ## Production Best Practices
 
-1. **Set API_KEY** in `wrangler.toml` for DELETE operations
-2. **Monitor analytics** via CF Dashboard
-3. **Start with higher rate limits**, adjust based on metrics
-4. **Enable geo-blocking** for specific regions if needed
-5. **Regularly audit** created URLs for spam/abuse
-6. **Set up alerts** for spike in error rates
+1. **Monitor analytics** via CF Dashboard
+2. **Start with higher rate limits**, adjust based on metrics
+3. **Enable geo-blocking** for specific regions if needed
+4. **Regularly audit** created URLs for spam/abuse
+5. **Set up alerts** for spike in error rates
 
 ## Cost Estimate (AWS pricing equivalent)
 

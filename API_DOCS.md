@@ -283,58 +283,7 @@ curl https://short.example.com/abc123/analytics | jq '.referrers'
 
 ---
 
-### 5. Delete Shortened URL
-
-Delete a shortened URL (requires API key).
-
-**Endpoint:**
-```
-DELETE /:code
-```
-
-**Request Headers:**
-```
-Authorization: Bearer your-api-key
-```
-
-**Parameters:**
-| Field | Type | Location | Required |
-|-------|------|----------|----------|
-| code | string | Path | ✅ Yes |
-
-**Response (200 OK):**
-```json
-{
-  "success": true,
-  "message": "URL deleted successfully"
-}
-```
-
-**Error Responses:**
-
-| Status | Error | Description |
-|--------|-------|-------------|
-| 401 | Unauthorized | Missing or invalid API key |
-| 404 | Short URL not found | Code doesn't exist |
-
-**Examples:**
-
-```bash
-# Delete a short URL
-curl -X DELETE https://short.example.com/abc123 \
-  -H "Authorization: Bearer your-api-key"
-
-# Delete by custom alias
-curl -X DELETE https://short.example.com/cf-workers \
-  -H "Authorization: Bearer your-api-key"
-
-# Check response
-# {"success": true, "message": "URL deleted successfully"}
-```
-
----
-
-### 6. Health Check
+### 5. Health Check
 
 Health check endpoint for monitoring.
 
@@ -480,7 +429,7 @@ All errors follow a consistent format:
 All responses include:
 ```
 Access-Control-Allow-Origin: *
-Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS
+Access-Control-Allow-Methods: GET, POST, OPTIONS
 Access-Control-Allow-Headers: Content-Type, Authorization
 ```
 
@@ -612,9 +561,6 @@ curl -X POST https://short.example.com/shorten \
 # Get analytics
 curl https://short.example.com/abc123/analytics
 
-# Delete (requires API key)
-curl -X DELETE https://short.example.com/abc123 \
-  -H "Authorization: Bearer sk_prod_xxx"
 ```
 
 ---
