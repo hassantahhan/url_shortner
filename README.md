@@ -49,8 +49,8 @@ Business logic is designed around reliability and cost-efficient scale: create r
 
 - npm
 - Node.js
+- Wrangler CLI installed
 - Cloudflare account with Workers enabled
-- Wrangler CLI installed globally
 
 ```bash
 npm install -g wrangler
