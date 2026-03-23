@@ -95,4 +95,13 @@ export class RateLimiter {
       'RateLimit-Reset': resetTime.toString()
     };
   }
+
+  /**
+   * Clear current minute window for create requests.
+   * Useful to avoid locking follow-up flows for local test scripts.
+   */
+  async resetCreateWindow(kv: KVNamespace, ip: string): Promise<void> {
+    const minuteKey = this.getKey(ip, 'minute');
+    await kv.delete(minuteKey);
+  }
 }

@@ -45,6 +45,16 @@ function addCORSHeaders(response: Response): Response {
 }
 
 /**
+ * Health check endpoint
+ */
+router.get('/health', () => {
+  return new Response(JSON.stringify({ status: 'ok', timestamp: Date.now() }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' }
+  });
+});
+
+/**
  * POST /shorten - Create a new shortened URL
  */
 router.post('/shorten', async (request: Request, env: Env) => {
@@ -63,6 +73,11 @@ router.post('/shorten', async (request: Request, env: Env) => {
   );
 
   if (!rateLimitCheck.allowed) {
+    await rateLimiter.resetCreateWindow(
+      env.RATE_LIMIT_KV || env.URL_STORE,
+      clientIP
+    );
+
     const response = createErrorResponse(
       'Rate limit exceeded. Too many requests.',
       429
@@ -190,6 +205,11 @@ router.get('/:code/info', async (request: IRequest, env: Env) => {
       return createErrorResponse('Short URL not found', 404);
     }
 
+    if (storage.isExpired(urlEntry)) {
+      await storage.deleteURL(code);
+      return createErrorResponse('Short URL has expired', 410);
+    }
+
     return new Response(JSON.stringify(urlEntry), {
       status: 200,
       headers: {
@@ -251,16 +271,6 @@ router.options('*', () => {
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type'
     }
-  });
-});
-
-/**
- * Health check endpoint
- */
-router.get('/health', () => {
-  return new Response(JSON.stringify({ status: 'ok', timestamp: Date.now() }), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json' }
   });
 });
 

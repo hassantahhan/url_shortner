@@ -7,7 +7,7 @@ This URL shortener leverages Cloudflare's edge computing platform to provide:
 1. **Global Distribution**: Requests served from nearest edge location (<50ms latency)
 2. **High Availability**: Automatic failover and DDoS protection built-in
 3. **Real-time Analytics**: Stream-like data collection with Durable Objects
-4. **Security**: Rate limiting, API key support, and CORS controls
+4. **Security**: Rate limiting and CORS controls
 
 ## Component Breakdown
 
@@ -27,8 +27,9 @@ This URL shortener leverages Cloudflare's edge computing platform to provide:
 // src/index.ts
 export default {
   fetch: (request: Request, env: Env) => {
-    // Router handles path matching and method dispatch
-    return router.handle(request, env);
+    // Router handles path matching and method dispatch, then adds CORS headers
+    const response = router.handle(request, env);
+    return Promise.resolve(response).then(addCORSHeaders);
   }
 };
 ```
@@ -65,6 +66,8 @@ Value: {
 TTL: 30 days by default (automatic deletion) or customize with expiresIn parameter
 ```
 
+Note: URLs also carry an `expiresAt` timestamp checked at read time. KV TTL has a platform minimum of 60 seconds, so very short expirations (e.g. 2 seconds) are enforced logically via `expiresAt` and then cleaned up by API logic.
+
 **Customizing Expiration**:
 
 Edit `src/kv-storage.ts` to change the default:
@@ -76,7 +79,6 @@ private DEFAULT_EXPIRATION_MS = 30 * 24 * 60 * 60 * 1000;
 // Change to your preferred duration:
 private DEFAULT_EXPIRATION_MS = 7 * 24 * 60 * 60 * 1000;  // 7 days
 private DEFAULT_EXPIRATION_MS = 365 * 24 * 60 * 60 * 1000; // 1 year
-private DEFAULT_EXPIRATION_MS = Infinity; // Permanent (never expires)
 ```
 
 Or use the `expiresIn` parameter when creating URLs:
@@ -157,6 +159,8 @@ Client IP → Extract from request → Counter (per-minute & per-hour)
 - **Stored in KV**: Distributed, survives worker restarts
 - **TTL**: Counters auto-expire after 60/3600 seconds
 
+Current behavior: rate limiting is enforced on `POST /shorten`.
+
 **Headers Returned**:
 ```
 RateLimit-Limit: 30                    // Total allowed
@@ -165,7 +169,6 @@ RateLimit-Reset: 1700000060            // Unix timestamp when resets
 ```
 
 **Attack Prevention**:
-- Brute-forcing short codes: Rate limit on redirects
 - Spam creation: Rate limit on /shorten endpoint
 - Analytics harvesting: Return cached data (no real-time exposure)
 
@@ -193,7 +196,6 @@ RateLimit-Reset: 1700000060            // Unix timestamp when resets
 1. **Short URLs are static**: URL target never changes  
 2. **Cost reduction**: 99% cache hit rate = 99% less origin requests  
 3. **Global performance**: 7-day freshness acceptable for redirects  
-4. **Invalidation**: Delete operation removes from KV + purges edge cache  
 
 ### Cache Key Structure
 
@@ -270,21 +272,12 @@ Production Durable Objects (selected locations)
 
 ### Authentication
 
-**Levels**:
-1. **Public** (no auth required)
-   - GET /shorten → Redirect requests
-   - GET /:code/info → URL metadata
-   
-2. **API Key Protected** (optional)
-   - Analytics endpoints (future)
-
-**Implementation**:
-```typescript
-const authHeader = request.headers.get('Authorization');
-if (env.API_KEY && authHeader !== `Bearer ${env.API_KEY}`) {
-  return createErrorResponse('Unauthorized', 401);
-}
-```
+Current endpoints are public (no API key required):
+- GET /health
+- POST /shorten
+- GET /:code
+- GET /:code/info
+- GET /:code/analytics
 
 ### Rate Limiting
 
@@ -328,7 +321,6 @@ if (env.API_KEY && authHeader !== `Bearer ${env.API_KEY}`) {
 ### Soft Limits (Rate limiting in code)
 
 - Create: 30 requests/minute per IP (configurable)
-- Redirect: 1000 requests/hour per IP (configurable)
 
 ### Growth Path
 
@@ -375,7 +367,7 @@ if (env.API_KEY && authHeader !== `Bearer ${env.API_KEY}`) {
 - ✅ 99% cache hit rate
 - ✅ <10ms global latency
 - ✅ Minimal storage cost
-- ⚠️  Deletes take ~60 seconds to propagate
+- ⚠️  Expiration is enforced in app logic via `expiresAt`; KV physical TTL cleanup may lag for very short expirations
 
 ### Decision: Custom Domain
 

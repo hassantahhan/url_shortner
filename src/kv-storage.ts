@@ -31,17 +31,25 @@ export class KVStorage {
    */
   async createURL(request: CreateURLRequest): Promise<CreateURLResponse> {
     let shortCode: string;
-    let attempts = 0;
-    const maxAttempts = 10;
 
-    // Generate unique short code
-    do {
-      shortCode = this.generateShortCode();
-      attempts++;
-    } while (await this.codeExists(shortCode) && attempts < maxAttempts);
+    if (request.customAlias) {
+      shortCode = request.customAlias;
+      if (await this.codeExists(shortCode)) {
+        throw new Error('Custom alias already exists');
+      }
+    } else {
+      let attempts = 0;
+      const maxAttempts = 10;
 
-    if (attempts >= maxAttempts) {
-      throw new Error('Failed to generate unique short code');
+      // Generate unique short code
+      do {
+        shortCode = this.generateShortCode();
+        attempts++;
+      } while (await this.codeExists(shortCode) && attempts < maxAttempts);
+
+      if (attempts >= maxAttempts) {
+        throw new Error('Failed to generate unique short code');
+      }
     }
 
     const now = Date.now();
@@ -57,9 +65,9 @@ export class KVStorage {
       userId: undefined
     };
 
-    // Store with 30-day default TTL (or custom TTL if provided)
+    // KV requires expiration_ttl >= 60s. Keep logical expiration in expiresAt.
     const options: KVNamespacePutOptions = {
-      expirationTtl: Math.ceil(expirationMs / 1000) // Convert milliseconds to seconds
+      expirationTtl: Math.max(60, Math.ceil(expirationMs / 1000))
     };
 
     await this.kv.put(shortCode, JSON.stringify(urlEntry), options);

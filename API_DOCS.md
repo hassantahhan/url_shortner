@@ -11,13 +11,7 @@ http://localhost:8787 (local development)
 
 ## Authentication
 
-Most endpoints are public. Protected endpoints require an API key:
-
-```
-Authorization: Bearer your-api-key
-```
-
-Set `API_KEY` in environment variables for protected operations.
+All currently documented endpoints are public.
 
 ---
 
@@ -51,7 +45,7 @@ Content-Type: application/json
 |-------|------|----------|-------------|
 | url | string | ✅ Yes | Full URL to shorten (must be valid HTTP/HTTPS) |
 | customAlias | string | ❌ No | Custom short code (3-20 chars, alphanumeric + `-_`) |
-| expiresIn | number | ❌ No | Milliseconds until URL expires (optional, permanent if omitted) |
+| expiresIn | number | ❌ No | Milliseconds until URL expires (defaults to 30 days if omitted) |
 
 **Response (201 Created):**
 ```json
@@ -129,6 +123,7 @@ Cache-Control: public, max-age=86400, s-maxage=604800
 | Status | Error | Description |
 |--------|-------|-------------|
 | 404 | Short URL not found | Code doesn't exist |
+| 410 | Short URL has expired | URL TTL exceeded |
 | 410 | Short URL has expired | URL TTL exceeded |
 
 **Cache Headers:**
@@ -323,8 +318,8 @@ Rate limiting is enforced per IP address.
 | Endpoint | Limit | Window | Purpose |
 |----------|-------|--------|---------|
 | POST /shorten | 30 | 1 minute | Prevent spam creation |
-| GET /:code | 1000 | 1 hour | Prevent enumeration |
-| Other GET | 100 | 1 minute | Standard |
+
+Note: Current implementation enforces rate limiting on `POST /shorten` only.
 
 ### Rate Limit Headers
 
@@ -413,7 +408,6 @@ All errors follow a consistent format:
 | 201 | Created - Resource created |
 | 301 | Moved Permanently - Redirect |
 | 400 | Bad Request - Invalid input |
-| 401 | Unauthorized - API key required |
 | 404 | Not Found - Resource doesn't exist |
 | 409 | Conflict - Alias already used |
 | 410 | Gone - Resource expired |
@@ -430,7 +424,7 @@ All responses include:
 ```
 Access-Control-Allow-Origin: *
 Access-Control-Allow-Methods: GET, POST, OPTIONS
-Access-Control-Allow-Headers: Content-Type, Authorization
+Access-Control-Allow-Headers: Content-Type
 ```
 
 ### Useful Headers

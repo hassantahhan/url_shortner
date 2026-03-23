@@ -6,7 +6,6 @@
  */
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:8787';
-const API_KEY = process.env.API_KEY || 'test-key';
 
 // Color output
 const colors = {
@@ -309,46 +308,10 @@ const tests = {
   },
 
   /**
-   * Test 13: Delete URL (with auth)
-   */
-  async testDeleteURL() {
-    log('\n=== Test 13: Delete URL ===', 'blue');
-    
-    // Create a URL to delete
-    const createResponse = await request('POST', '/shorten', {
-      url: 'https://example.com/to-delete'
-    });
-    
-    if (createResponse.status !== 201) {
-      log('✗ Failed to create URL for deletion', 'red');
-      return false;
-    }
-    
-    const code = createResponse.body.shortCode;
-    
-    // Delete it
-    const deleteResponse = await request(
-      'DELETE',
-      `/${code}`,
-      null,
-      { 'Authorization': `Bearer ${API_KEY}` }
-    );
-    
-    if (deleteResponse.status === 200) {
-      log(`✓ Successfully deleted URL: ${code}`, 'green');
-      return true;
-    } else {
-      log('✗ Failed to delete URL', 'red');
-      log(JSON.stringify(deleteResponse.body, null, 2), 'gray');
-      return false;
-    }
-  },
-
-  /**
-   * Test 14: CORS Headers
+   * Test 13: CORS Headers
    */
   async testCORSHeaders() {
-    log('\n=== Test 14: CORS Headers ===', 'blue');
+    log('\n=== Test 13: CORS Headers ===', 'blue');
     
     const url = `${BASE_URL}/health`;
     const response = await fetch(url);
