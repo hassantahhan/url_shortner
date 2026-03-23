@@ -115,7 +115,7 @@ https://url-shortener-dev.<your-subdomain>.workers.dev
 
 **Production deployment**
 
-Before production deploys, update `wrangler.toml` under `[env.production]` by replacing `your-worker-domain.example.com` with your real production domain, then deploy:
+Before production deploys, update `wrangler.toml` under `[env.production]` by replacing `your-domain.example.com` with your real production domain, then deploy:
 
 ```bash
 npm run deploy -- -e production
@@ -143,7 +143,7 @@ To run tests against another environment, set `BASE_URL` before running `npm tes
 Example:
 
 ```
-npx cross-env BASE_URL=https://your-worker-domain.example.com npm test
+npx cross-env BASE_URL=https://your-domain.example.com npm test
 ```
 
 ## API Examples
