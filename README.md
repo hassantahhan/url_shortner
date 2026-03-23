@@ -78,9 +78,9 @@ npx wrangler kv namespace create URL_STORE --env production
 npx wrangler kv namespace create RATE_LIMIT_KV --env production
 ```
 
-Update the resulting IDs in `wrangler.toml` under each environment's `kv_namespaces`.
+Manually update the resulting IDs in `wrangler.toml` under each environment's `kv_namespaces`.
 
-Or run this command to auto-populate the IDs above from your Cloudflare account if namespaces are already created:
+Or run this command to auto-populate the namesapce bindings in `wrangler.toml` with the namesapce IDs in your Cloudflare account:
 
 ```powershell
 $n = (npx wrangler kv namespace list 2>$null | Out-String); $n = $n.Substring($n.IndexOf('[')); $n = $n | ConvertFrom-Json; function i($t){($n|?{$_.title-eq$t}).id}; $t = Get-Content wrangler.toml -Raw; $d = $t.IndexOf('[env.development]'); $p = $t.IndexOf('[env.production]'); $db = $t.Substring($d,$p-$d); $pb = $t.Substring($p); $db = $db -replace '(binding = "URL_STORE"\s+id = ")[^"]*(")',"`${1}$(i 'development-URL_STORE')`${2}"; $db = $db -replace '(binding = "RATE_LIMIT_KV"\s+id = ")[^"]*(")',"`${1}$(i 'development-RATE_LIMIT_KV')`${2}"; $pb = $pb -replace '(binding = "URL_STORE"\s+id = ")[^"]*(")',"`${1}$(i 'production-URL_STORE')`${2}"; $pb = $pb -replace '(binding = "RATE_LIMIT_KV"\s+id = ")[^"]*(")',"`${1}$(i 'production-RATE_LIMIT_KV')`${2}"; $t.Substring(0,$d)+$db+$pb | Set-Content wrangler.toml -NoNewline; Write-Host "Done"
