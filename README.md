@@ -286,13 +286,13 @@ npm run dev
 
 ### Staging
 ```bash
-wrangler publish --env development
+wrangler deploy --env development
 # Tests full Cloudflare services without affecting production
 ```
 
 ### Production
 ```bash
-wrangler publish --env production
+wrangler deploy --env production
 # Live on your custom domain
 ```
 
