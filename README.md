@@ -1,6 +1,6 @@
 # Global URL Shortener - Cloudflare Stack
 
-A production-ready URL shortener built on Cloudflare's edge computing platform with Workers, Workers KV, Durable Objects, and integrated rate limiting.
+Global URL shortener leveraging Cloudflare Workers, KV, and Durable Objects for edge-optimized redirection and real-time analytics.
 
 ## Architecture Overview
 
@@ -93,7 +93,7 @@ The worker will run at `http://localhost:8787`
 npm run deploy
 
 # Or with specific environment
-wrangler publish --env production
+wrangler deploy --env production
 ```
 
 ## API Documentation
@@ -205,15 +205,6 @@ Since short URLs are **static** (the target never changes without deletion), we 
 2. **Subsequent accesses**: Cloudflare serves cached response from edge location
 3. **Result**: <10ms response times for 99% of requests globally
 
-### KV Naming Convention
-
-```
-{shortCode}              → ShortenedURL object
-alias:{customAlias}      → Stores shortCode for reverse lookup
-ratelimit:{ip}:minute    → Per-minute counter (60s TTL)
-ratelimit:{ip}:hour      → Per-hour counter (3600s TTL)
-```
-
 ## Security Implementation
 
 ### Rate Limiting
@@ -275,26 +266,6 @@ When a redirect occurs:
 2. Durable Object increments counters atomically
 3. Data persists in Durable Object's storage
 4. Minimal impact on redirect latency (<1ms)
-
-## Deployment Scenarios
-
-### Development
-```bash
-npm run dev
-# Access at http://localhost:8787
-```
-
-### Staging
-```bash
-wrangler deploy --env development
-# Tests full Cloudflare services without affecting production
-```
-
-### Production
-```bash
-wrangler deploy --env production
-# Live on your custom domain
-```
 
 ## Environment Variables
 
@@ -402,14 +373,6 @@ npm run lint
 npm run format
 ```
 
-## Production Best Practices
-
-1. **Monitor analytics** via Ccloudflare Dashboard
-2. **Start with higher rate limits**, adjust based on metrics
-3. **Enable geo-blocking** for specific regions if needed
-4. **Regularly audit** created URLs for spam/abuse
-5. **Set up alerts** for spike in error rates
-
 ## Cost Estimate (AWS pricing equivalent)
 
 | Component | Cloudflare | AWS |
@@ -420,14 +383,6 @@ npm run format
 | Analytics DB | Included | $1.00+ |
 
 *Cloudflare Workers Scale pricing tier
-
-## Resources
-
-- [Cloudflare Workers Documentation](https://developers.cloudflare.com/workers/)
-- [Workers KV](https://developers.cloudflare.com/workers/platform/storage/kv/)
-- [Durable Objects](https://developers.cloudflare.com/workers/platform/durable-objects/)
-- [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/)
-- [Rate Limiting Strategies](https://developers.cloudflare.com/fundamentals/get-started/concepts/ddos-protection/)
 
 ## License
 
