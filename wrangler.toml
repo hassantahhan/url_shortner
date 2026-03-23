@@ -33,7 +33,7 @@ class_name = "AnalyticsObject"
 [env.production]
 name = "url-shortener"
 routes = [
-  { pattern = "short.example.com", custom_domain = true }
+  { pattern = "your-domain.example.com", custom_domain = true }
 ]
 
 [[env.production.kv_namespaces]]

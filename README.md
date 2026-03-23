@@ -96,11 +96,23 @@ The worker will run at `http://localhost:8787`
 
 4. **Deploy to Cloudflare**
 
-```bash
-# Deploy to development
-npm run deploy -- -e development
+**Development deployment**
 
-# Deploy to production
+```bash
+npm run deploy -- -e development
+```
+
+Development URL:
+
+```text
+https://url-shortener-dev.<your-subdomain>.workers.dev
+```
+
+**Production deployment**
+
+Before production deploys, update `wrangler.toml` under `[env.production]` by replacing `your-worker-domain.example.com` with your real production domain, then deploy:
+
+```bash
 npm run deploy -- -e production
 ```
 
