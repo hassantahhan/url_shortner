@@ -82,8 +82,28 @@ function renderDemoPage(): string {
       margin-bottom: 14px;
       box-shadow: 0 10px 24px rgba(15, 111, 255, 0.24);
     }
+    .hero-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
     .hero h1 { margin: 0 0 6px; font-size: 1.35rem; }
     .hero p { margin: 0; opacity: 0.95; }
+    .repo-link {
+      color: #fff;
+      text-decoration: none;
+      font-weight: 600;
+      border: 1px solid rgba(255, 255, 255, 0.65);
+      border-radius: 999px;
+      padding: 6px 10px;
+      white-space: nowrap;
+      background: rgba(255, 255, 255, 0.12);
+    }
+    .repo-link:hover {
+      background: rgba(255, 255, 255, 0.22);
+    }
     .grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -152,7 +172,10 @@ function renderDemoPage(): string {
 <body>
   <div class="wrap">
     <section class="hero">
-      <h1>URL Shortener API Demo</h1>
+      <div class="hero-head">
+        <h1>URL Shortener API Demo</h1>
+        <a class="repo-link" href="https://github.com/hassantahhan/url_shortner" target="_blank" rel="noopener noreferrer">GitHub Repo</a>
+      </div>
       <p>Single-page UI for health, shorten, info, analytics, and redirect operations.</p>
     </section>
 
