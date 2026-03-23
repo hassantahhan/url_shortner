@@ -34,12 +34,6 @@ export default {
 };
 ```
 
-**Why itty-router?**
-- Lightweight (~5KB minified)
-- Perfect for edge workers
-- Minimal overhead
-- Works with TypeScript
-
 ### 2. Workers KV (Distributed Storage)
 
 **Role**: Fast, global key-value store for URL mappings

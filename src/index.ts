@@ -1,11 +1,11 @@
-import { Router, IRequest } from 'itty-router';
+import { Hono } from 'hono';
 import { Env, CreateURLRequest, ErrorResponse } from './types';
 import { KVStorage } from './kv-storage';
 import { RateLimiter } from './rate-limiter';
 import { AnalyticsObject } from './durable-objects';
 
-// Create router
-const router = Router();
+// Create app
+const app = new Hono<{ Bindings: Env }>();
 
 /**
  * Extract client IP from request headers
@@ -37,17 +37,17 @@ function createErrorResponse(
 /**
  * Add CORS headers
  */
-function addCORSHeaders(response: Response): Response {
-  response.headers.set('Access-Control-Allow-Origin', '*');
-  response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
-  return response;
-}
+app.use('*', async (c, next) => {
+  await next();
+  c.header('Access-Control-Allow-Origin', '*');
+  c.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  c.header('Access-Control-Allow-Headers', 'Content-Type');
+});
 
 /**
  * Health check endpoint
  */
-router.get('/health', () => {
+app.get('/health', () => {
   return new Response(JSON.stringify({ status: 'ok', timestamp: Date.now() }), {
     status: 200,
     headers: { 'Content-Type': 'application/json' }
@@ -57,7 +57,9 @@ router.get('/health', () => {
 /**
  * POST /shorten - Create a new shortened URL
  */
-router.post('/shorten', async (request: Request, env: Env) => {
+app.post('/shorten', async (c) => {
+  const request = c.req.raw;
+  const env = c.env;
   const clientIP = getClientIP(request);
   const rateLimiter = new RateLimiter({
     requestsPerMinute: 30,
@@ -138,8 +140,10 @@ router.post('/shorten', async (request: Request, env: Env) => {
 /**
  * GET /:code - Redirect to original URL
  */
-router.get('/:code', async (request: IRequest, env: Env) => {
-  const { code } = request.params as { code: string };
+app.get('/:code', async (c) => {
+  const request = c.req.raw;
+  const env = c.env;
+  const code = c.req.param('code');
   const clientIP = getClientIP(request);
 
   try {
@@ -194,8 +198,9 @@ router.get('/:code', async (request: IRequest, env: Env) => {
 /**
  * GET /:code/info - Get information about a short URL
  */
-router.get('/:code/info', async (request: IRequest, env: Env) => {
-  const { code } = request.params as { code: string };
+app.get('/:code/info', async (c) => {
+  const env = c.env;
+  const code = c.req.param('code');
 
   try {
     const storage = new KVStorage(env.URL_STORE);
@@ -226,8 +231,9 @@ router.get('/:code/info', async (request: IRequest, env: Env) => {
 /**
  * GET /:code/analytics - Get analytics for a short URL
  */
-router.get('/:code/analytics', async (request: IRequest, env: Env) => {
-  const { code } = request.params as { code: string };
+app.get('/:code/analytics', async (c) => {
+  const env = c.env;
+  const code = c.req.param('code');
 
   try {
     const storage = new KVStorage(env.URL_STORE);
@@ -263,7 +269,7 @@ router.get('/:code/analytics', async (request: IRequest, env: Env) => {
 /**
  * OPTIONS - Handle CORS preflight
  */
-router.options('*', () => {
+app.options('*', () => {
   return new Response(null, {
     status: 204,
     headers: {
@@ -277,19 +283,14 @@ router.options('*', () => {
 /**
  * 404 Handler
  */
-router.all('*', () => {
+app.notFound(() => {
   return createErrorResponse('Endpoint not found', 404);
 });
 
 /**
  * Main handler
  */
-export default {
-  fetch: (request: Request, env: Env) => {
-    const response = router.handle(request, env);
-    return Promise.resolve(response).then(addCORSHeaders);
-  }
-};
+export default app;
 
 // Export Durable Object
 export { AnalyticsObject };
