@@ -1,432 +1,451 @@
-# Architecture & Design Decisions
+# Architecture and System Design
 
-## System Design Overview
+This document explains how the URL shortener works as a system. It is written for developers who need to understand request flow, storage boundaries, business rules, and the implementation tradeoffs behind the current design.
 
-This URL shortener leverages Cloudflare's edge computing platform to provide:
+## What This Service Is
 
-1. **Global Distribution**: Requests served from nearest edge location (<50ms latency)
-2. **High Availability**: Automatic failover and DDoS protection built-in
-3. **Real-time Analytics**: Stream-like data collection with Durable Objects
-4. **Security**: Rate limiting and CORS controls
+The service exposes a small public API that does four things:
 
-## Component Breakdown
+1. Create a short code for a long URL.
+2. Resolve a short code into an HTTP redirect.
+3. Return metadata about a short code without redirecting.
+4. Return aggregate analytics for that short code.
 
-### 1. Cloudflare Worker (Entry Point)
+At runtime, the service is a Cloudflare Worker backed by two state systems:
 
-**Role**: Request routing and orchestration
+- Workers KV stores URL records and rate-limit counters.
+- A Durable Object stores analytics counters for each short code.
 
-**Responsibilities**:
-- Parse incoming requests
-- Route to appropriate handler (create, redirect, analytics, Info)
-- Enforce rate limiting
-- Return cached or fresh responses
-- Log errors for debugging
+The design intentionally splits read-heavy URL lookups from write-sensitive analytics updates:
 
-**Key Code**:
-```typescript
-// src/index.ts
-export default {
-  fetch: (request: Request, env: Env) => {
-    // Router handles path matching and method dispatch, then adds CORS headers
-    const response = router.handle(request, env);
-    return Promise.resolve(response).then(addCORSHeaders);
-  }
-};
+- URL lookups must be cheap and globally fast, so they live in KV.
+- Analytics increments must not lose counts under concurrency, so they live in a Durable Object.
+
+## Mental Model
+
+Think of the system as three layers:
+
+```text
+Client
+  -> Cloudflare Worker (routing, validation, response shaping)
+       -> Workers KV (URL records, expiration metadata, rate-limit counters)
+       -> Durable Object (serialized analytics updates per short code)
 ```
 
-### 2. Workers KV (Distributed Storage)
+The Worker owns the application behavior. KV and Durable Objects are storage and coordination primitives used by the Worker to enforce that behavior.
 
-**Role**: Fast, global key-value store for URL mappings
+## Runtime Components
 
-**Why KV for URLs?**
-| Feature | Workers KV | Durable Objects | Comparison |
-|---------|-----------|-----------------|-----------|
-| Read latency | <1ms globally | ~10-50ms (single region) | KV wins for reads |
-| Write speed | ~100ms (replicated) | <1ms (local) | DO wins for writes |
-| Consistency | Eventually consistent | Strongly consistent | DO better for analytics |
-| Cost | $0.50/M read operations | $6.00/M requests | KV cheaper for reads |
-| Use case | URL mappings (many reads) | Analytics (many writes) | Perfect split |
+### 1. Edge Worker
 
-**Data Structure**:
-```
-Key: {shortCode}
-Value: {
+File: `src/index.ts`
+
+The Worker is the application entry point. It uses Hono for route matching, but the business logic is still explicit in the route handlers.
+
+Core responsibilities:
+
+- Parse the incoming request.
+- Extract client metadata such as IP, country, referrer, and user agent.
+- Validate request payloads.
+- Enforce create-rate limiting.
+- Read and write URL state through `KVStorage`.
+- Forward analytics operations to the `AnalyticsObject` Durable Object.
+- Shape HTTP semantics: status codes, redirects, cache headers, and error payloads.
+
+The Worker also applies permissive CORS headers to all routes and exposes a small demo UI at `/demo`.
+
+### 2. KVStorage Abstraction
+
+File: `src/kv-storage.ts`
+
+`KVStorage` is a thin repository layer over Workers KV. It centralizes how URL records are created, retrieved, updated, deleted, and expired.
+
+Responsibilities:
+
+- Generate random short codes when the client does not supply one.
+- Persist `ShortenedURL` records.
+- Encode expiration twice:
+  - platform TTL through `expirationTtl`
+  - application-level expiration through `expiresAt`
+- Delete alias metadata when a short code is deleted.
+- Prevent mutation of the original target URL in `updateURL`.
+
+This class is where most persistent URL business rules should live if the project grows.
+
+### 3. Analytics Durable Object
+
+File: `src/durable-objects.ts`
+
+The Durable Object provides a single serialized execution context per short code. That matters because analytics are increment-heavy writes and would be prone to lost updates in KV alone.
+
+Responsibilities:
+
+- Initialize analytics state on first access.
+- Increment redirect counters.
+- Aggregate referrer, country, and browser counts.
+- Return analytics views for the Worker.
+- Persist analytics in Durable Object storage under `analytics:{shortCode}`.
+
+This object is not used for routing or redirect resolution. It is dedicated to analytics.
+
+### 4. Rate Limiter
+
+File: `src/rate-limiter.ts`
+
+The `RateLimiter` uses KV counters to cap traffic from a single IP.
+
+Current behavior:
+
+- `POST /shorten` is rate-limited.
+- The configured create limit is 30 requests per minute per IP.
+- Redirect traffic is not currently rate-limited by route handlers, even though the helper supports an hourly mode.
+
+This distinction is important: the codebase contains generic rate-limit logic, but only create requests actually enforce it today.
+
+## Data Model
+
+### URL Record
+
+Stored in Workers KV under key `{shortCode}`.
+
+```json
+{
   "id": "abc123",
   "originalUrl": "https://example.com/path",
   "createdAt": 1700000000000,
-  "customAlias": "optional",
-  "expiresAt": 1700086400000
+  "expiresAt": 1702592000000,
+  "customAlias": "marketing-landing"
 }
-TTL: 30 days by default (automatic deletion) or customize with expiresIn parameter
 ```
 
-Note: URLs also carry an `expiresAt` timestamp checked at read time. KV TTL has a platform minimum of 60 seconds, so very short expirations (e.g. 2 seconds) are enforced logically via `expiresAt` and then cleaned up by API logic.
+Fields with business meaning:
 
-**Customizing Expiration**:
+- `id`: canonical short code used in routes.
+- `originalUrl`: redirect target.
+- `createdAt`: creation timestamp in Unix milliseconds.
+- `expiresAt`: logical expiration checked by the Worker on reads.
+- `customAlias`: present when the user supplied the code instead of using a generated one.
 
-Edit `src/kv-storage.ts` to change the default:
+### Analytics Record
 
-```typescript
-// Currently set to 30 days:
-private DEFAULT_EXPIRATION_MS = 30 * 24 * 60 * 60 * 1000;
+Stored in Durable Object storage under key `analytics:{shortCode}`.
 
-// Change to your preferred duration:
-private DEFAULT_EXPIRATION_MS = 7 * 24 * 60 * 60 * 1000;  // 7 days
-private DEFAULT_EXPIRATION_MS = 365 * 24 * 60 * 60 * 1000; // 1 year
-```
-
-Or use the `expiresIn` parameter when creating URLs:
-```bash
-curl -X POST /shorten -d '{
-  "url": "https://example.com",
-  "expiresIn": 3600000  # 1 hour
-}'
-```
-
-**Operations**:
-- **Get** (read): <1ms latency, cached at edge
-- **Put** (write): ~5-10ms, replicated globally
-
-### 3. Durable Objects (Persistent Compute)
-
-**Role**: Analytics aggregation and real-time state management
-
-**Why Durable Objects for Analytics?**
-
-Problem with KV-only analytics:
-```
-Request 1: ratelimit_abc123 = 0 (read)
-Request 2: ratelimit_abc123 = 0 (read)
-Request 1: ratelimit_abc123 = 1 (write from req 1)
-Request 2: ratelimit_abc123 = 1 (write from req 2)  ❌ Lost count!
-```
-
-Solution with Durable Objects:
-```
-Request 1 → Durable Object → Lock → count = 0+1 → Store → count = 1
-Request 2 → Durable Object → Lock → count = 1+1 → Store → count = 2 ✓
-```
-
-**Key Benefits**:
-- Serialized writes (no race conditions)
-- Single instance per short code (consistency)
-- Persistent storage (survives worker restarts)
-- Real-time aggregation
-
-**Data Collected**:
-```typescript
+```json
 {
-  "redirectCount": 1250,              // Total clicks
-  "lastAccessedAt": 1700050000000,    // Last access time
-  "referrers": {                      // Traffic sources
-    "twitter.com": 450,
-    "facebook.com": 380,
-    "direct": 420
+  "shortCode": "abc123",
+  "redirectCount": 1250,
+  "lastAccessedAt": 1700050000000,
+  "referrers": {
+    "https://twitter.com": 450
   },
-  "countries": {                      // Geography
-    "US": 600,
-    "GB": 300,
-    "FR": 200
+  "countries": {
+    "US": 600
   },
-  "userAgents": {                     // Client breakdown
-    "Chrome": 700,
-    "Safari": 350,
-    "Firefox": 200
+  "userAgents": {
+    "Chrome": 700
   }
 }
 ```
 
-### 4. Rate Limiter Module
+The analytics data is aggregate-only. There is no event log and no per-click identity persisted.
 
-**Role**: Prevent abuse and DoS attacks
+### Rate-Limit Counters
 
-**Strategy**:
-```
-Client IP → Extract from request → Counter (per-minute & per-hour)
-              ↓
-         Check limit → Decide allow/deny → Return headers
-```
+Stored in Workers KV under time-bucketed keys:
 
-**Implementation**:
-- **Minute counter**: Fast limit for write operations (30/min)
-- **Hour counter**: Slower limit for read operations (1000/hr)
-- **Stored in KV**: Distributed, survives worker restarts
-- **TTL**: Counters auto-expire after 60/3600 seconds
+- `ratelimit:{ip}:minute:{bucket}`
+- `ratelimit:{ip}:hour:{bucket}`
 
-Current behavior: rate limiting is enforced on `POST /shorten`.
+These keys expire automatically using KV TTL.
 
-**Headers Returned**:
-```
-RateLimit-Limit: 30                    // Total allowed
-RateLimit-Remaining: 27                // Remaining within window
-RateLimit-Reset: 1700000060            // Unix timestamp when resets
-```
+## End-to-End Request Flows
 
-**Attack Prevention**:
-- Spam creation: Rate limit on /shorten endpoint
-- Analytics harvesting: Return cached data (no real-time exposure)
+### 1. Create Flow: `POST /shorten`
 
-## Caching Strategy
+This is the write path where most validation logic lives.
 
-### Multi-layer Caching
-
-```
-┌─────────────┐
-│  Browser    │ ← 1 day cache (client cache)
-└─────┬───────┘
-      │
-┌─────▼──────────────────┐
-│  Cloudflare Edge       │ ← 7 days cache (s-maxage)
-│  (Multiple locations)  │   Shared across all users
-└─────┬──────────────────┘
-      │
-┌─────▼──────────────┐
-│  Origin Worker     │ ← KV lookup + analytics
-└────────────────────┘
+```text
+Request
+  -> extract client IP
+  -> check per-IP create rate limit
+  -> parse JSON body
+  -> validate url exists
+  -> validate url is syntactically valid
+  -> validate customAlias format if present
+  -> check alias collision
+  -> create URL record in KV
+  -> return 201 response with shortCode and timestamps
 ```
 
-### Why 7-Day Edge Cache?
+Business rules enforced here:
 
-1. **Short URLs are static**: URL target never changes  
-2. **Cost reduction**: 99% cache hit rate = 99% less origin requests  
-3. **Global performance**: 7-day freshness acceptable for redirects  
+- `url` is required.
+- `url` must parse as a valid URL.
+- `customAlias`, if supplied, must match `^[a-zA-Z0-9_-]{3,20}$`.
+- Create requests are limited to 30 per minute per IP.
+- If `expiresIn` is omitted, the default is 30 days.
+- If the caller supplies `customAlias`, that alias becomes the actual short code.
+- If the system generates a short code, it retries up to 10 times to avoid collisions.
 
-### Cache Key Structure
+Important implementation details:
 
-Cloudflare automatically uses:
-```
-Cache key = {method} {host} {path}
-```
+- Expiration is enforced logically through `expiresAt`, not only by KV TTL.
+- KV still requires a minimum TTL of 60 seconds, so the system stores very short expirations in metadata and lets the Worker reject them after they expire.
+- The response currently returns `https://short.example.com/{shortCode}` as `shortUrl`. That is a static host string from the storage layer, not a dynamically derived host.
 
-For our endpoints:
-```
-GET short.example.com/abc123     → 7-day cache (redirect)
-GET short.example.com/abc123/info → 1-hour cache (metadata)
-POST short.example.com/shorten    → 0 cache (dynamic)
-```
+### 2. Redirect Flow: `GET /:code`
 
-## Deployment Architecture
+This is the main read path and the one most sensitive to latency.
 
-### Local Development
-
-```
-Your Machine
-    ↓
-localhost:8787 (Wrangler dev server)
-    ↓
-Mock KV (local storage)
-Mock Durable Objects
+```text
+Request
+  -> lookup short code in KV
+  -> if not found, return 404
+  -> if expired, delete record and return 410
+  -> send analytics increment to Durable Object
+  -> return 301 redirect with cache headers
 ```
 
-### Staging Environment
+Business rules enforced here:
 
-```
-Cloudflare Edge
-    ↓
-us.short.example-dev.workers.dev
-    ↓
-Staging KV namespace
-Preview Durable Objects
-```
+- A missing short code returns `404`.
+- An expired short code returns `410` and is deleted from KV on access.
+- Redirects use `301 Moved Permanently`.
+- Redirect responses are cacheable for 1 day in the browser and 7 days at the edge.
 
-### Production Environment
+What happens under the hood:
 
-```
-Cloudflare Edge (Global)
-    ├─ APAC (Asia-Pacific)
-    ├─ EMEA (Europe, Middle East, Africa)
-    ├─ Americas
-    └─ All other regions
-    ↓
-short.example.com (custom domain)
-    ↓
-Production KV namespace (replicated globally)
-Production Durable Objects (selected locations)
-```
+- The Worker reads the URL record from KV.
+- If the record is expired according to `expiresAt`, the Worker deletes it immediately.
+- The Worker then makes an internal request to the analytics Durable Object using the short code as the Durable Object name.
+- If analytics recording fails, the redirect still succeeds. Analytics failures are treated as non-fatal.
 
-## Performance Characteristics
+That last point is deliberate: redirect correctness is prioritized over analytics completeness.
 
-### Response Times
+### 3. Metadata Flow: `GET /:code/info`
 
-| Operation | Latency | Cached? |
-|-----------|---------|---------|
-| Create short URL | ~100ms | ❌ Dynamic |
-| Redirect (first) | ~50ms | ❌ First hit |
-| Redirect (cached) | ~10ms | ✅ From edge |
-| Get info | ~100ms | ✅ 1hr cache |
-| Get analytics | ~50ms | ✅ 1min cache |
+This is a read-only inspection endpoint.
 
-### Throughput
-
-- **Redirects**: 100,000+ RPS (requests per second) per edge location
-- **Creates**: Limited by rate limiting (30/min per IP) + KV write speed
-- **Analytics**: Real-time, <1ms latency addition per request
-
-## Security Model
-
-### Authentication
-
-Current endpoints are public (no API key required):
-- GET /health
-- POST /shorten
-- GET /:code
-- GET /:code/info
-- GET /:code/analytics
-
-### Rate Limiting
-
-**Prevents**:
-- URL enumeration (trying all 6-char codes)
-- Spam URL creation from single IP
-- DDoS attacks (monitored by Cloudflare separately)
-
-**Not prevented** (Cloudflare handles):
-- Distributed attacks (automatic DDoS protection)
-- Bot traffic (Turnstile/reCAPTCHA available as addon)
-
-## Data Privacy
-
-**What we track**:
-- Redirect count (aggregated)
-- Referrer domain (not query strings)
-- Country code (from Cloudflare headers)
-- Browser type (extracted from UA, not full UA)
-
-**What we DON'T track**:
-- User identities
-- Full URLs (only referrer domain)
-- Individual IP addresses (only for rate limiting)
-- Query parameters
-
-**Compliance**:
-- GDPR compatible (no personal data stored)
-- CCPA compliant (no PI collection)
-- Can be made HIPAA-compatible with encryption
-
-## Scaling Limits
-
-### Hard Limits
-
-- **Max key size**: 512MB per key (we use ~300B)
-- **Max value size**: 512MB per value (we use ~300B)
-- **Max operations/sec**: Platform enforces, very high
-- **Durable Object state**: 128MB per instance
-
-### Soft Limits (Rate limiting in code)
-
-- Create: 30 requests/minute per IP (configurable)
-
-### Growth Path
-
-| Volume | Strategy | Cost |
-|--------|----------|------|
-| <1M URLs | Basic plan | $5/month |
-| 1M-100M URLs | Standard plan | $20/month + usage |
-| >100M URLs | Enterprise | Custom pricing |
-
-## Trade-offs & Decisions
-
-### Decision: Use KV for URLs, DO for Analytics
-
-**Alternative 1**: All in KV
-- ❌ Can't reliably increment counters
-- ❌ Would need complex conflict resolution
-- ✅ Simpler code
-
-**Alternative 2**: All in Durable Objects
-- ✅ Strong consistency
-- ✅ Better for high-write workloads
-- ❌ More expensive (10-12x cost)
-- ❌ Single regional instance bottleneck
-
-**Our choice**: Hybrid approach
-- ✅ Cost-efficient
-- ✅ Optimal read/write separation
-- ✅ Scales well
-- ❌ Slightly more complex
-
-### Decision: 7-Day Edge Cache
-
-**Alternative 1**: No caching
-- ✅ Always fresh
-- ❌ Every redirect hits origin
-- ❌ Global latency >100ms
-
-**Alternative 2**: 1-Hour cache
-- ✅ Fast, reasonable freshness
-- ❌ Miss 99% of potential savings
-- ❌ Higher origin load
-
-**Our choice**: 7 days
-- ✅ 99% cache hit rate
-- ✅ <10ms global latency
-- ✅ Minimal storage cost
-- ⚠️  Expiration is enforced in app logic via `expiresAt`; KV physical TTL cleanup may lag for very short expirations
-
-### Decision: Custom Domain
-
-**Why not use Cloudflare's .workers.dev subdomain?**
-- Looks unprofessional
-- Hard to rebrand
-- Shares rate limits with other users
-- Analytics mixed with other services
-
-**Using custom domain**:
-- ✅ Branded appearance
-- ✅ Independent rate limits
-- ✅ Full control
-- ✓ Requires Cloudflare plan with custom domains
-
-## Monitoring & Observability
-
-### What to Monitor
-
-```
-Worker Metrics:
-├─ Request count (by endpoint)
-├─ Error rate (4xx, 5xx)
-├─ Response time (p50, p95, p99)
-└─ Rate limit hits
-
-KV Metrics:
-├─ Read latency
-├─ Write latency
-└─ Storage size
-
-Durable Objects:
-├─ Execution time
-├─ Error rate
-└─ State size
+```text
+Request
+  -> lookup short code in KV
+  -> if missing, return 404
+  -> if expired, delete record and return 410
+  -> return stored metadata as JSON
 ```
 
-### How to Monitor
+Business rules:
 
-1. **Cloudflare Dashboard**
-   - Visual charts
-   - Real-time metrics
-   - 7-day retention
+- It uses the same expiration behavior as redirects.
+- It does not record analytics.
+- It is cacheable for 1 hour.
 
-2. **Wrangler tail**
-   ```bash
-   wrangler tail --format json
-   ```
+This endpoint is useful for dashboards, debugging, and admin tools because it returns the persisted URL record without following the redirect.
 
-3. **Third-party (optional)**
-   - Datadog integration
-   - Log aggregation (Logstash/ELK)
-   - Custom metrics endpoint
+### 4. Analytics Flow: `GET /:code/analytics`
 
-## Future Enhancements
+This is a mixed read path:
 
-1. **Custom expiration policies** (URL-specific TTLs)
-2. **Password-protected URLs** (authentication at redirect)
-3. **Custom redirect codes** (302 vs 301)
-4. **Click webhooks** (POST to external service on redirect)
-5. **QR code generation** (return QR code image)
-6. **URL previews** (safe browsing check before redirect)
-7. **Link rotation** (AB testing with multiple URLs)
-8. **Vanity analytics dashboard** (web UI for analytics)
+```text
+Request
+  -> verify short code exists in KV
+  -> resolve Durable Object by code
+  -> request analytics snapshot from Durable Object
+  -> return aggregate analytics JSON
+```
 
----
+Business rules:
 
-**Questions?** See [README.md](./README.md) for usage or [API documentation](./API_DOCS.md) for endpoint details.
+- Analytics are only returned for an existing short code.
+- The response is cached for 60 seconds.
+- Analytics are aggregate counts, not raw event records.
+
+The Worker validates the code in KV first so analytics are not served for orphaned or unknown codes.
+
+## Under-the-Hood Business Logic
+
+### Code Generation Strategy
+
+Random codes use a base62-like alphabet:
+
+```text
+0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz
+```
+
+Default length is 6, which gives a large key space while keeping URLs short. Collisions are handled by retrying up to 10 times.
+
+The business implication is simple:
+
+- generated links optimize for brevity
+- custom aliases optimize for readability and campaign-specific naming
+
+### Custom Alias Behavior
+
+When `customAlias` is provided:
+
+- the alias itself is used as the short code
+- the record is stored under that alias key in KV
+- a second KV entry `alias:{customAlias}` is also written
+
+Today, public routes do not use the reverse alias lookup helper. In practice, the alias works because it is already the main key. The extra alias mapping exists as supporting metadata and could enable future lookup patterns, but it is not currently required for route resolution.
+
+### Expiration Model
+
+Expiration is enforced in two layers:
+
+1. KV TTL removes old entries eventually.
+2. The Worker checks `expiresAt` on every read and treats stale entries as expired immediately.
+
+That means business expiration is precise even if physical deletion in KV is delayed.
+
+When an expired record is accessed:
+
+- the Worker deletes the code from KV
+- the caller receives `410 Gone`
+
+This makes expiration an active rule in request handling, not just a background storage property.
+
+### Analytics Aggregation Rules
+
+Each redirect attempt records:
+
+- total redirect count
+- last accessed timestamp
+- raw referrer header value if present
+- Cloudflare country header if present
+- simplified browser family derived from user agent
+
+The browser bucketing is intentionally coarse:
+
+- Chrome
+- Firefox
+- Safari
+- Edge
+- Opera
+- Other
+
+This keeps the analytics model lightweight and avoids storing high-cardinality full user-agent strings.
+
+### Failure-Tolerance Rules
+
+The service distinguishes core path failures from secondary path failures.
+
+Core failures:
+
+- malformed create request
+- missing code
+- expired code
+- KV read or write failure on the primary path
+
+Secondary failures:
+
+- analytics recording failure during redirect
+
+Core failures change the API result. Secondary failures are logged and ignored so the redirect path stays available.
+
+## Storage and Consistency Tradeoffs
+
+### Why URL Records Are in KV
+
+KV is a good fit because redirect resolution is read-heavy and globally distributed.
+
+Expected pattern:
+
+- relatively few creates
+- many more redirects
+- occasional metadata and analytics reads
+
+KV gives cheap, global reads and works well with cacheable redirect responses.
+
+### Why Analytics Are Not in KV Alone
+
+Analytics are increment-based writes. If two requests read the same old value and both write back an incremented value, one increment is lost.
+
+The Durable Object avoids that by serializing operations for a given short code.
+
+### Why Rate Limiting Uses KV
+
+Rate-limit counters do not need perfect cross-region transactional guarantees for this use case. They only need cheap bucketed counters with automatic expiry. KV is sufficient for that level of enforcement.
+
+## Caching Model
+
+The system relies on HTTP caching rather than a custom cache implementation.
+
+### Redirect Responses
+
+- Browser cache: 1 day via `max-age=86400`
+- Shared edge cache: 7 days via `s-maxage=604800`
+
+This is safe because URL targets are immutable in the current system. There is no public endpoint that edits a destination after creation.
+
+### Metadata Responses
+
+- Cache TTL: 1 hour
+
+### Analytics Responses
+
+- Cache TTL: 60 seconds
+
+Analytics are intentionally less aggressive because they change on every redirect.
+
+## Security and Abuse Controls
+
+### Public API Surface
+
+All current endpoints are unauthenticated.
+
+- `GET /health`
+- `GET /demo`
+- `POST /shorten`
+- `GET /:code`
+- `GET /:code/info`
+- `GET /:code/analytics`
+
+This makes rate limiting the primary built-in abuse control at the application layer.
+
+### Rate-Limit Semantics
+
+The create flow uses per-IP counters.
+
+- Limit: 30 requests per minute
+- Storage: KV with 60-second TTL buckets
+- Response on limit breach: `429 Too Many Requests`
+- Headers returned: `RateLimit-Limit`, `RateLimit-Remaining`, `RateLimit-Reset`
+
+One implementation detail developers should know: when a create request exceeds the limit, the current code resets the minute bucket after detecting the breach. That is convenient for local testing but weakens strict rate-limit enforcement semantics.
+
+## Deployment Model
+
+Environment config is defined in `wrangler.toml`.
+
+Bindings:
+
+- `URL_STORE`: KV namespace for URL records
+- `RATE_LIMIT_KV`: KV namespace for rate-limit counters
+- `ANALYTICS`: Durable Object namespace for analytics
+
+There are separate `development` and `production` environments. The production config expects a custom domain route for `short.example.com`.
+
+## What A Developer Should Know Before Changing This System
+
+1. Redirect correctness is the primary product requirement. Do not let analytics or secondary features break redirect success.
+2. Expiration is enforced in application logic, not only by KV TTL.
+3. URL records are effectively immutable after creation from a business perspective.
+4. Custom aliases are not a second-class feature; they become the canonical route key.
+5. Analytics are aggregate counters, not raw event history.
+6. The current host in `shortUrl` responses is hardcoded and may need environment-aware generation if this service is deployed under multiple domains.
+7. Only create requests are actively rate-limited today.
+8. If you add features like delete, edit, ownership, or auth, you will need to revisit cache invalidation, authorization boundaries, and the current assumption that redirects are safe to cache for days.
+
+## Likely Extension Points
+
+The current architecture leaves room for the following future changes:
+
+- authentication and ownership for private link management
+- custom domain support with dynamic host generation
+- richer analytics dimensions
+- admin delete or deactivate endpoints
+- mutable destination URLs with cache purge strategy
+- stronger anti-abuse controls for redirect scraping or analytics harvesting
+
+If those features are added, the biggest design changes will likely be around cache invalidation, authorization, and whether KV remains the right store for all URL metadata.
