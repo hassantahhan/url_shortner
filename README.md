@@ -140,11 +140,10 @@ npm test
 By default, tests target `http://localhost:8787`.
 To run tests against another environment, set `BASE_URL` before running `npm test`.
 
-Example (PowerShell):
+Example:
 
-```powershell
-$env:BASE_URL = "https://your-worker-domain.example.com"
-npm test
+```
+npx cross-env BASE_URL=https://your-worker-domain.example.com npm test
 ```
 
 ## API Examples
