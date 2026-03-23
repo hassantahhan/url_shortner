@@ -128,6 +128,15 @@ function renderDemoPage(): string {
     .status { margin-top: 8px; min-height: 18px; font-size: 0.9rem; }
     .ok { color: var(--ok); }
     .err { color: var(--err); }
+    .warning {
+      margin-top: 10px;
+      padding: 8px 10px;
+      border-left: 3px solid #e6a817;
+      background: #fffbf0;
+      border-radius: 0 9px 9px 0;
+      font-size: 0.85rem;
+      color: #7a5200;
+    }
     .preview {
       margin-top: 8px;
       padding: 8px 10px;
@@ -163,6 +172,7 @@ function renderDemoPage(): string {
         <label for="expiresIn">Expires In (ms, optional)</label>
         <input id="expiresIn" placeholder="86400000" />
         <div class="row"><button id="btnCreate">POST /shorten</button></div>
+        <div class="warning">⚠ Do not shorten URLs that contain sensitive information such as passwords, access tokens, session ids, or personal data in the query string. The full URL is stored and returned to anyone who follows the link.</div>
         <div id="createStatus" class="status"></div>
       </article>
 
