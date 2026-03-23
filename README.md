@@ -1,8 +1,14 @@
-# Global URL Shortener - Cloudflare Stack
+# Global URL Shortener
 
-Global URL shortener leveraging Cloudflare Workers, KV, and Durable Objects for edge-optimized redirection and real-time analytics.
+This project turns long links into short, branded links that are fast for customers worldwide, track how queries perform in real time, and stay reliable during high traffic. It helps you share cleaner URLs, measure clicks by source and region, and reduce infrastructure overhead by running on Cloudflare’s global network.
 
-## Architecture Overview
+## Design Overview
+
+The design follows an edge-first design where Cloudflare Workers handle request routing, validation, and response shaping close to the user. The goal is to keep redirects fast globally while centralizing business rules for creation, expiration, and error handling in a single runtime layer.
+
+The storage model is intentionally split by access pattern. URL mappings and lightweight metadata are stored in Workers KV for low-latency global reads, while analytics counters are handled by Durable Objects to guarantee serialized updates and avoid lost increments under concurrent traffic.
+
+Business logic is designed around reliability and cost-efficient scale: create requests are rate-limited, redirects are aggressively cached at the edge, expired links are rejected with explicit lifecycle semantics, and analytics recording is treated as best-effort so redirect correctness remains the primary behavior of the system.
 
 ```
 ┌────────────────────────────────────────────────┐
@@ -74,7 +80,7 @@ npx wrangler kv namespace create RATE_LIMIT_KV --env production
 
 Update the resulting IDs in `wrangler.toml` under each environment's `kv_namespaces`.
 
-4. **Run Locally**
+3. **Run Locally**
 
 ```bash
 npm run dev
@@ -82,7 +88,7 @@ npm run dev
 
 The worker will run at `http://localhost:8787`
 
-5. **Deploy to Cloudflare**
+4. **Deploy to Cloudflare**
 
 ```bash
 # Deploy to development
@@ -92,7 +98,7 @@ npm run deploy -- -e development
 npm run deploy -- -e production
 ```
 
-## Run Tests
+5. **Run Tests**
 
 The project includes an integration-style test script in `test-examples.js`.
 
@@ -251,29 +257,6 @@ RateLimit-Reset: 1700000060
 - Redirect endpoint (`GET /:code`) returns `301` with `Location` header
 - Error messages are informative but not sensitive
 
-## Durable Objects Deep Dive
-
-### Why Durable Objects for Analytics?
-
-**Traditional approach (Workers KV only):**
-- Limited transaction support
-- Hard to maintain counters reliably
-- Race conditions on frequently accessed URLs
-
-**Durable Objects solution:**
-- Single instance per short code
-- Serialized writes (no race conditions)
-- Persistent storage with durability guarantees
-- Real-time in-memory state for hot URLs
-
-### Recording Analytics
-
-When a redirect occurs:
-1. Worker sends analytics event to Durable Object
-2. Durable Object increments counters atomically
-3. Data persists in Durable Object's storage
-4. Minimal impact on redirect latency (<1ms)
-
 ## Monitoring & Debugging
 
 ### Test with curl
@@ -312,26 +295,6 @@ wrangler tail
 wrangler tail --format json
 # See detailed error traces
 ```
-
-## Scaling Considerations
-
-### KV Performance
-- **Reads**: ~1ms globally (geographically distributed)
-- **Writes**: ~5-10ms (replicated globally)
-- **Consistency**: Eventually consistent (usually <500ms)
-- **Capacity**: Up to 1KB per key (short URLs fit easily)
-
-### Durable Objects
-- **State**: Up to 128MB per object
-- **Throughput**: ~1000 ops/second per object instance
-- **Cost**: ~$0.15/million requests + storage
-
-### Practical Limits
-
-For typical production use:
-- **URLs**: Unlimited (millions in KV)
-- **QPS**: >100,000 requests/second (edge distributed)
-- **Analytics**: Real-time with minimal latency impact
 
 ## Troubleshooting
 

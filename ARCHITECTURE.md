@@ -414,6 +414,29 @@ The create flow uses per-IP counters.
 
 One implementation detail developers should know: when a create request exceeds the limit, the current code resets the minute bucket after detecting the breach. That is convenient for local testing but weakens strict rate-limit enforcement semantics.
 
+## Scaling Considerations
+
+### KV Performance
+
+- **Reads**: ~1ms globally (geographically distributed)
+- **Writes**: ~5-10ms (replicated globally)
+- **Consistency**: Eventually consistent (usually <500ms)
+- **Capacity**: Up to 1KB per key (short URLs fit easily)
+
+### Durable Objects
+
+- **State**: Up to 128MB per object
+- **Throughput**: ~1000 ops/second per object instance
+- **Cost**: ~$0.15/million requests + storage
+
+### Practical Limits
+
+For typical production use:
+
+- **URLs**: Unlimited (millions in KV)
+- **Traffic**: >100,000 requests/second (edge distributed)
+- **Analytics**: Real-time with minimal latency impact
+
 ## Deployment Model
 
 Environment config is defined in `wrangler.toml`.
