@@ -76,7 +76,6 @@ npx wrangler kv:namespace create RATE_LIMIT_KV --preview
 
 Edit `wrangler.toml`:
 - Replace `your-kv-namespace-id` strings with your actual KV namespace IDs
-- Replace `your-zone-id` with your Cloudflare zone ID
 - Update domain in routes (replace `short.example.com`)
 
 4. **Run Locally**
