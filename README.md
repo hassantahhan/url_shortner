@@ -63,18 +63,19 @@ npm install
 
 2. **Create KV Namespaces**
 
-Use the installed Wrangler via npx:
+Create separate namespaces for each environment:
 
 ```bash
-npx wrangler kv:namespace create URL_STORE
-npx wrangler kv:namespace create RATE_LIMIT_KV
+# Development
+npx wrangler kv namespace create URL_STORE --env development
+npx wrangler kv namespace create RATE_LIMIT_KV --env development
+
+# Production
+npx wrangler kv namespace create URL_STORE --env production
+npx wrangler kv namespace create RATE_LIMIT_KV --env production
 ```
 
-3. **Configure Wrangler**
-
-Edit `wrangler.toml`:
-- Replace `your-kv-namespace-id` strings with your actual KV namespace IDs
-- Update domain in routes (replace `short.example.com`)
+Update the resulting IDs in `wrangler.toml` under each environment's `kv_namespaces`.
 
 4. **Run Locally**
 
@@ -87,10 +88,11 @@ The worker will run at `http://localhost:8787`
 5. **Deploy to Cloudflare**
 
 ```bash
-npm run deploy
+# Deploy to development
+npm run deploy -- -e development
 
-# Or with specific environment
-wrangler deploy --env production
+# Deploy to production
+npm run deploy -- -e production
 ```
 
 ## Run Tests
@@ -143,7 +145,7 @@ npm test
 ```json
 {
   "shortCode": "abc123",
-  "shortUrl": "https://short.example.com/abc123",
+  "shortUrl": "https://hassantahhan.workers.dev/abc123",
   "originalUrl": "https://example.com/very/long/path",
   "createdAt": 1700000000000,
   "expiresAt": 1700086400000
@@ -394,6 +396,29 @@ npm run lint
 
 # Format code
 npm run format
+```
+
+## Decommission
+
+To fully remove all resources created by this project from Cloudflare:
+
+### 1. Delete the Workers
+
+```bash
+# Delete production worker
+npx wrangler delete --name url-shortener
+
+# Delete development worker
+npx wrangler delete --name url-shortener-dev
+```
+
+### 2. Delete KV Namespaces
+
+```bash
+# List all namespaces to confirm IDs
+npx wrangler kv namespace list
+
+npx wrangler kv namespace delete --namespace-id [...namespace-id...]
 ```
 
 ## Cost Estimate (AWS pricing equivalent)

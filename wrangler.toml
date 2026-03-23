@@ -2,27 +2,10 @@ name = "url-shortener"
 main = "src/index.ts"
 compatibility_date = "2024-01-01"
 
-# Use the 'workers_dev' flag for fast testing and development.
-workers_dev = true
-
-# Workers KV namespace bindings
-[[kv_namespaces]]
-binding = "URL_STORE"
-id = "your-kv-namespace-id"
-
-[[kv_namespaces]]
-binding = "RATE_LIMIT_KV"
-id = "your-kv-namespace-id"
-
-# Durable Objects binding
-[[durable_objects.bindings]]
-name = "ANALYTICS"
-class_name = "AnalyticsObject"
-
 # Durable Objects migrations
 [[migrations]]
 tag = "v1"
-new_classes = ["AnalyticsObject"]
+new_sqlite_classes = ["AnalyticsObject"]
 
 # Build configuration
 [build]
@@ -32,9 +15,19 @@ cwd = "./"
 # Dev configuration
 [env.development]
 name = "url-shortener-dev"
-routes = [
-  { pattern = "localhost/*" }
-]
+workers_dev = true
+
+[[env.development.kv_namespaces]]
+binding = "URL_STORE"
+id = "your-kv-namespace-id"
+
+[[env.development.kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "your-kv-namespace-id"
+
+[[env.development.durable_objects.bindings]]
+name = "ANALYTICS"
+class_name = "AnalyticsObject"
 
 # Prod configuration
 [env.production]
@@ -42,3 +35,15 @@ name = "url-shortener"
 routes = [
   { pattern = "short.example.com", custom_domain = true }
 ]
+
+[[env.production.kv_namespaces]]
+binding = "URL_STORE"
+id = "your-kv-namespace-id"
+
+[[env.production.kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "your-kv-namespace-id"
+
+[[env.production.durable_objects.bindings]]
+name = "ANALYTICS"
+class_name = "AnalyticsObject"

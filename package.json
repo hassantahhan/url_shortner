@@ -5,7 +5,7 @@
   "main": "src/index.ts",
   "scripts": {
     "dev": "wrangler dev",
-    "deploy": "wrangler publish",
+    "deploy": "wrangler deploy",
     "build": "tsc",
     "test": "node test-examples.js",
     "type-check": "tsc --noEmit",
