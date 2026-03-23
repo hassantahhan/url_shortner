@@ -414,6 +414,50 @@ The create flow uses per-IP counters.
 
 One implementation detail developers should know: when a create request exceeds the limit, the current code resets the minute bucket after detecting the breach. That is convenient for local testing but weakens strict rate-limit enforcement semantics.
 
+## Privacy and Data Handling
+
+### What Gets Stored
+
+**URL record** (KV, keyed by short code):
+
+- `id` — the short code
+- `originalUrl` — the full destination URL as submitted, including any query parameters
+- `createdAt`, `expiresAt` — timestamps
+- `customAlias` — present only if the caller supplied one
+
+Nothing else. There is no creator IP, user identity, session token, or request context attached to a URL record.
+
+**Analytics record** (Durable Object, keyed by `analytics:{shortCode}`):
+
+- `redirectCount` — running total
+- `lastAccessedAt` — timestamp of the most recent redirect
+- `referrers` — map of referrer domain → count
+- `countries` — map of two-letter country code → count (from `cf-ipcountry`)
+- `userAgents` — map of coarse browser family → count
+
+This is aggregate-only. There is no event log, no per-click row, and no way to reconstruct who visited a link or in what order.
+
+**Rate-limit counters** (KV, keyed by `ratelimit:{ip}:minute:{bucket}`):
+
+- Scoped to the current time window
+- Expire automatically via KV TTL
+- Never joined to URL records
+
+### What Gets Dropped
+
+**Client IP after rate-limit check**: The IP is read from `cf-connecting-ip` and used only to look up and increment the KV counter. It is never written into a URL record, an analytics record, or any other persistent store.
+
+**Query parameters appended to the short URL at access time**: The redirect route is `GET /:code`. Only the path segment (`code`) is read. Any query string on the short URL itself — for example `GET /abc123?utm_source=email` — is silently ignored and not forwarded to the destination.
+
+### User Responsibility for URL Content
+
+The `originalUrl` field is stored exactly as submitted and is placed directly into the `Location` header on redirect. That means:
+
+- Query parameters that are part of the original long URL are preserved and forwarded correctly.
+- If the URL being shortened contains sensitive values in the query string (e.g. `?token=`, `?session=`, `?api_key=`), those values enter KV storage and are served back in the `Location` header to every client that follows the short link.
+
+There is no server-side scrubbing of query parameters. Callers are responsible for not shortening URLs that embed credentials or personal identifiers.
+
 ## Scaling Considerations
 
 ### KV Performance

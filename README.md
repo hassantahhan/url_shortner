@@ -231,31 +231,30 @@ Since short URLs are **static** (the target never changes without deletion), we 
 2. **Subsequent accesses**: Cloudflare serves cached response from edge location
 3. **Result**: <100ms response times for 99% of requests globally
 
-## Security Implementation
+## Security Controls
 
 ### Rate Limiting
 
-**Create endpoint (write-heavy):**
-- 30 requests/minute per IP
-- Prevents rapid-fire URL creation attacks
+Applied on `POST /shorten` only — 30 requests/minute per IP. Returns `429` on breach with:
 
-**Current enforcement:**
-- Applied on `POST /shorten`
-- Returns 429 with standard rate-limit headers when exceeded
-
-**Headers returned:**
 ```
 RateLimit-Limit: 30
 RateLimit-Remaining: 27
 RateLimit-Reset: 1700000060
 ```
 
-### CORS & Security Headers
+### Response Headers
 
-- Cross-Origin Requests enabled with proper CORS headers
-- JSON endpoints return `Content-Type: application/json`
-- Redirect endpoint (`GET /:code`) returns `301` with `Location` header
-- Error messages are informative but not sensitive
+- CORS enabled on all endpoints (`Access-Control-Allow-Origin: *`)
+- JSON responses include `Content-Type: application/json`
+- Redirects return `301` with a `Location` header only — no HTTP body
+
+### Privacy Protection
+
+- Each URL record stores only: short code, original URL, timestamps, and optional alias
+- Creator IP is used transiently for rate limiting only — never written to KV
+- Analytics are aggregated totals (referrer domain, country code, browser name) — no per-visitor records are kept
+- The original URL is stored exactly as provided; avoid shortening URLs that contain credentials, tokens, or personal identifiers in the query string (e.g. `?token=`, `?session=`, `?email=`)
 
 ## Monitoring & Debugging
 
