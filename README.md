@@ -151,8 +151,8 @@ npx cross-env BASE_URL=https://your-domain.example.com npm test
 Configured workflows:
 
 - **Continuous Integration** (`.github/workflows/ci.yml`): runs on pull requests and pushes to `main`.
-- **Development Deployment** (`.github/workflows/deploy-development.yml`): runs on pushes to `main` and manual trigger.
-- **Production Deployment** (`.github/workflows/deploy-production.yml`): manual trigger only.
+- **Development Deployment** (`.github/workflows/cd-dev.yml`): runs on pushes to `main` and manual trigger.
+- **Production Deployment** (`.github/workflows/cd-prod.yml`): manual trigger only.
 
 One-time setup for development and production deployments:
 

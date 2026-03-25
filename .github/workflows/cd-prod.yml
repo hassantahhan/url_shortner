@@ -1,26 +1,30 @@
-name: Deploy Development
+name: CD-Prod
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
+    inputs:
+      ref:
+        description: Git ref to deploy (branch, tag, or SHA)
+        required: false
+        default: main
 
 permissions:
   contents: read
 
 concurrency:
-  group: deploy-development
-  cancel-in-progress: true
+  group: deploy-production
+  cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: development
+    environment: production
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -34,9 +38,9 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Deploy to Cloudflare (development)
+      - name: Deploy to Cloudflare (production)
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy --env development
+          command: deploy --env production
