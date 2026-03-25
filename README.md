@@ -146,6 +146,35 @@ Example:
 npx cross-env BASE_URL=https://your-domain.example.com npm test
 ```
 
+## GitHub Actions (Short)
+
+Configured workflows:
+
+- `CI` (`.github/workflows/ci.yml`): runs on PRs and pushes to `main`.
+- `Deploy Development` (`.github/workflows/deploy-development.yml`): runs on pushes to `main` and manual trigger.
+- `Deploy Production` (`.github/workflows/deploy-production.yml`): manual trigger only.
+
+CI steps:
+
+1. `npm ci`
+2. `npm run type-check`
+3. `npm run build`
+4. Start worker locally with `npm run dev`
+5. Wait for `/health`
+6. Run `npm test` against `http://127.0.0.1:8787`
+
+Required GitHub secrets:
+
+- `CLOUDFLARE_API_TOKEN`
+- `CLOUDFLARE_ACCOUNT_ID`
+
+GitHub Environments used:
+
+- `development`
+- `production`
+
+Manual steps (one-time): create KV namespaces, set IDs in `wrangler.toml`, and configure production route/domain.
+
 ## API Examples
 
 ### Create Shortened URL
