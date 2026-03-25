@@ -146,7 +146,7 @@ Example:
 npx cross-env BASE_URL=https://your-domain.example.com npm test
 ```
 
-## GitHub Actions (Short)
+## GitHub Actions
 
 Configured workflows:
 
@@ -174,90 +174,6 @@ GitHub Environments used:
 - `production`
 
 Manual steps (one-time): create KV namespaces, set IDs in `wrangler.toml`, and configure production route/domain.
-
-## API Examples
-
-### Create Shortened URL
-
-**Endpoint:** `POST /shorten`
-
-**Request:**
-```json
-{
-  "url": "https://example.com/very/long/path",
-  "customAlias": "mylink",
-  "expiresIn": 86400000
-}
-```
-
-**Parameters:**
-- `url` (required): The URL to shorten
-- `customAlias` (optional): Custom short code (3-20 chars, alphanumeric + hyphens)
-- `expiresIn` (optional): Milliseconds until expiration (defaults to 30 days)
-
-**Response (201):**
-```json
-{
-  "shortCode": "abc123",
-  "shortUrl": "https://hassantahhan.workers.dev/abc123",
-  "originalUrl": "https://example.com/very/long/path",
-  "createdAt": 1700000000000,
-  "expiresAt": 1700086400000
-}
-```
-
-### Redirect to Original URL
-
-**Endpoint:** `GET /:code`
-
-Redirects to the original URL with HTTP 301 (Moved Permanently). Response is cached at Cloudflare edge for 7 days.
-
-**Example:**
-```
-GET /abc123
-→ 301 Location: https://example.com/very/long/path
-```
-
-## Caching Strategy
-
-Since short URLs are **static** (the target never changes without deletion), we can cache aggressively:
-
-1. **First access**: Worker queries KV, gets URL, sets cache headers
-2. **Subsequent accesses**: Cloudflare serves cached response from edge location
-3. **Result**: <100ms response times for 99% of requests globally
-
-
-| Component          | Cache TTL        | Location      | Strategy           |
-|--------------------|------------------|---------------|--------------------|
-| Redirects          | 7 days (604800s) | Edge (Tier 1) | Aggressive caching |
-| URL Info           | 1 hour (3600s)   | Edge          | Standard caching   |
-| Analytics          | 1 minute (60s)   | Edge          | Short-lived cache  |
-| Health Check       | No cache         | Origin        | Real-time check    |
-
-## Security Controls
-
-### Rate Limiting
-
-Applied on `POST /shorten` only — 30 requests/minute per IP. Returns `429` on breach with:
-
-```
-RateLimit-Limit: 30
-RateLimit-Remaining: 27
-RateLimit-Reset: 1700000060
-```
-
-### Response Headers
-
-- CORS enabled on all endpoints (`Access-Control-Allow-Origin: *`)
-- JSON responses include `Content-Type: application/json`
-- Redirects return `301` with a `Location` header only — no HTTP body
-
-### Privacy Protection
-
-- Each URL record stores only: short code, original URL, timestamps, and optional alias
-- Creator IP is used transiently for rate limiting only — never written to KV
-- Analytics are aggregated totals (referrer domain, country code, browser name) — no per-visitor records are kept
-- The original URL is stored exactly as provided; avoid shortening URLs that contain credentials, tokens, or personal identifiers in the query string (e.g. `?token=`, `?session=`, `?email=`)
 
 ## Monitoring & Debugging
 
@@ -316,6 +232,49 @@ wrangler kv:namespace list
 - Verify `s-maxage` directive for edge cache
 - Clear cache via cloudflare Dashboard if needed
 
+## API Examples
+
+### Create Shortened URL
+
+**Endpoint:** `POST /shorten`
+
+**Request:**
+```json
+{
+  "url": "https://example.com/very/long/path",
+  "customAlias": "mylink",
+  "expiresIn": 86400000
+}
+```
+
+**Parameters:**
+- `url` (required): The URL to shorten
+- `customAlias` (optional): Custom short code (3-20 chars, alphanumeric + hyphens)
+- `expiresIn` (optional): Milliseconds until expiration (defaults to 30 days)
+
+**Response (201):**
+```json
+{
+  "shortCode": "abc123",
+  "shortUrl": "https://hassantahhan.workers.dev/abc123",
+  "originalUrl": "https://example.com/very/long/path",
+  "createdAt": 1700000000000,
+  "expiresAt": 1700086400000
+}
+```
+
+### Redirect to Original URL
+
+**Endpoint:** `GET /:code`
+
+Redirects to the original URL with HTTP 301 (Moved Permanently). Response is cached at Cloudflare edge for 7 days.
+
+**Example:**
+```
+GET /abc123
+→ 301 Location: https://example.com/very/long/path
+```
+
 ## Decommission
 
 To fully remove all resources created by this project from Cloudflare:
@@ -338,6 +297,47 @@ npx wrangler kv namespace list
 
 npx wrangler kv namespace delete --namespace-id [...namespace-id...]
 ```
+
+## Caching Strategy
+
+Since short URLs are **static** (the target never changes without deletion), we can cache aggressively:
+
+1. **First access**: Worker queries KV, gets URL, sets cache headers
+2. **Subsequent accesses**: Cloudflare serves cached response from edge location
+3. **Result**: <100ms response times for 99% of requests globally
+
+
+| Component          | Cache TTL        | Location      | Strategy           |
+|--------------------|------------------|---------------|--------------------|
+| Redirects          | 7 days (604800s) | Edge (Tier 1) | Aggressive caching |
+| URL Info           | 1 hour (3600s)   | Edge          | Standard caching   |
+| Analytics          | 1 minute (60s)   | Edge          | Short-lived cache  |
+| Health Check       | No cache         | Origin        | Real-time check    |
+
+## Security Controls
+
+### Rate Limiting
+
+Applied on `POST /shorten` only — 30 requests/minute per IP. Returns `429` on breach with:
+
+```
+RateLimit-Limit: 30
+RateLimit-Remaining: 27
+RateLimit-Reset: 1700000060
+```
+
+### Response Headers
+
+- CORS enabled on all endpoints (`Access-Control-Allow-Origin: *`)
+- JSON responses include `Content-Type: application/json`
+- Redirects return `301` with a `Location` header only — no HTTP body
+
+### Privacy Protection
+
+- Each URL record stores only: short code, original URL, timestamps, and optional alias
+- Creator IP is used transiently for rate limiting only — never written to KV
+- Analytics are aggregated totals (referrer domain, country code, browser name) — no per-visitor records are kept
+- The original URL is stored exactly as provided; avoid shortening URLs that contain credentials, tokens, or personal identifiers in the query string (e.g. `?token=`, `?session=`, `?email=`)
 
 ## Cost Estimate
 
