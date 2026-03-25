@@ -150,16 +150,16 @@ npx cross-env BASE_URL=https://your-domain.example.com npm test
 
 Configured workflows:
 
-- `CI` (`.github/workflows/ci.yml`): runs on pull requests and pushes to `main`.
-- `Deploy Development` (`.github/workflows/deploy-development.yml`): runs on pushes to `main` and manual trigger.
-- `Deploy Production` (`.github/workflows/deploy-production.yml`): manual trigger only.
+- **Continuous Integration** (`.github/workflows/ci.yml`): runs on pull requests and pushes to `main`.
+- **Development Deployment** (`.github/workflows/deploy-development.yml`): runs on pushes to `main` and manual trigger.
+- **Production Deployment** (`.github/workflows/deploy-production.yml`): manual trigger only.
 
-Required GitHub secrets for `Deploy Development` and `Deploy Production`: 
+Required GitHub secrets for Development and Production Deployments: 
 
 - `CLOUDFLARE_API_TOKEN` - Cloudflare API token with permission to deploy Workers.
 - `CLOUDFLARE_ACCOUNT_ID` - target Cloudflare account ID used by Wrangler deploy.
 
-Manual steps (one-time) for `Deploy Development` and `Deploy Production`:
+Manual steps (one-time) for Development and Production Deployments:
 
 1. Create KV namespaces for development and production.
 2. Set namespace IDs in `wrangler.toml` for both environments.
