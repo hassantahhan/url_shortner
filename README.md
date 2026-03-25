@@ -154,16 +154,13 @@ Configured workflows:
 - **Development Deployment** (`.github/workflows/deploy-development.yml`): runs on pushes to `main` and manual trigger.
 - **Production Deployment** (`.github/workflows/deploy-production.yml`): manual trigger only.
 
-Required GitHub secrets for Development and Production Deployments: 
+One-time setup for development and production deployments:
 
-- `CLOUDFLARE_API_TOKEN` - Cloudflare API token with permission to deploy Workers.
-- `CLOUDFLARE_ACCOUNT_ID` - target Cloudflare account ID used by Wrangler deploy.
-
-Manual steps (one-time) for Development and Production Deployments:
-
-1. Create KV namespaces for development and production.
-2. Set namespace IDs in `wrangler.toml` for both environments.
-3. Configure production route/domain in `[env.production]` before first production deploy.
+1. Add the `CLOUDFLARE_API_TOKEN` GitHub secret with permission to deploy Workers.
+2. Add the `CLOUDFLARE_ACCOUNT_ID` GitHub secret for the target Cloudflare account.
+3. Create KV namespaces for both environments.
+4. Update `wrangler.toml` with the correct namespace IDs.
+5. Configure the production route/domain in `[env.production]` before the first production deploy.
 
 ## Monitoring & Debugging
 
