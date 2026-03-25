@@ -150,30 +150,20 @@ npx cross-env BASE_URL=https://your-domain.example.com npm test
 
 Configured workflows:
 
-- `CI` (`.github/workflows/ci.yml`): runs on PRs and pushes to `main`.
+- `CI` (`.github/workflows/ci.yml`): runs on pull requests and pushes to `main`.
 - `Deploy Development` (`.github/workflows/deploy-development.yml`): runs on pushes to `main` and manual trigger.
 - `Deploy Production` (`.github/workflows/deploy-production.yml`): manual trigger only.
 
-CI steps:
+Required GitHub secrets for `Deploy Development` and `Deploy Production`: 
 
-1. `npm ci`
-2. `npm run type-check`
-3. `npm run build`
-4. Start worker locally with `npm run dev`
-5. Wait for `/health`
-6. Run `npm test` against `http://127.0.0.1:8787`
+- `CLOUDFLARE_API_TOKEN` - Cloudflare API token with permission to deploy Workers.
+- `CLOUDFLARE_ACCOUNT_ID` - target Cloudflare account ID used by Wrangler deploy.
 
-Required GitHub secrets:
+Manual steps (one-time) for `Deploy Development` and `Deploy Production`:
 
-- `CLOUDFLARE_API_TOKEN`
-- `CLOUDFLARE_ACCOUNT_ID`
-
-GitHub Environments used:
-
-- `development`
-- `production`
-
-Manual steps (one-time): create KV namespaces, set IDs in `wrangler.toml`, and configure production route/domain.
+1. Create KV namespaces for development and production.
+2. Set namespace IDs in `wrangler.toml` for both environments.
+3. Configure production route/domain in `[env.production]` before first production deploy.
 
 ## Monitoring & Debugging
 
