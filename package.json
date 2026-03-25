@@ -13,15 +13,14 @@
     "lint": "eslint src --ext .ts"
   },
   "dependencies": {
-    "hono": "^4.8.2"
+    "hono": "^4.12.9"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20240620.0",
-    "@typescript-eslint/eslint-plugin": "^6.0.0",
-    "@typescript-eslint/parser": "^6.0.0",
-    "eslint": "^8.0.0",
-    "prettier": "^3.0.0",
-    "typescript": "^5.0.0",
-    "wrangler": "^4.76.0"
+    "@cloudflare/workers-types": "^4.20260313.1",
+    "typescript-eslint": "^8.57.2",
+    "eslint": "^9.21.0",
+    "prettier": "^3.5.0",
+    "typescript": "^5.7.0",
+    "wrangler": "latest"
   }
 }
